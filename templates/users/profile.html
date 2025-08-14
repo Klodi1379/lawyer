@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - Legal Case Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                {% if profile.profile_picture %}
+                    <img src="{{ profile.profile_picture.url }}" alt="Profile Picture" 
+                         class="rounded-circle mb-3" width="150" height="150" style="object-fit: cover;">
+                {% else %}
+                    <div class="bg-secondary rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                         style="width: 150px; height: 150px;">
+                        <i class="bi bi-person fs-1 text-white"></i>
+                    </div>
+                {% endif %}
+                
+                <h4>{{ user.get_full_name|default:user.username }}</h4>
+                <p class="text-muted">{{ user.get_role_display }}</p>
+                
+                {% if user.is_2fa_enabled %}
+                    <span class="badge bg-success">
+                        <i class="bi bi-shield-check"></i> 2FA Enabled
+                    </span>
+                {% else %}
+                    <span class="badge bg-warning">
+                        <i class="bi bi-shield-exclamation"></i> 2FA Disabled
+                    </span>
+                {% endif %}
+                
+                <div class="mt-3">
+                    <a href="{% url 'profile_update' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-pencil"></i> Edit Profile
+                    </a>
+                    <a href="{% url 'password_change' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-key"></i> Change Password
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Account Information -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">Account Information</h6>
+            </div>
+            <div class="card-body">
+                <div class="row mb-2">
+                    <div class="col-sm-4"><strong>Username:</strong></div>
+                    <div class="col-sm-8">{{ user.username }}</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-sm-4"><strong>Email:</strong></div>
+                    <div class="col-sm-8">{{ user.email|default:"Not provided" }}</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-sm-4"><strong>Role:</strong></div>
+                    <div class="col-sm-8">{{ user.get_role_display }}</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-sm-4"><strong>Joined:</strong></div>
+                    <div class="col-sm-8">{{ user.date_joined|date:"M d, Y" }}</div>
+                </div>
+                <div class="row">
+                    <div class="col-sm-4"><strong>Last Login:</strong></div>
+                    <div class="col-sm-8">{{ user.last_login|date:"M d, Y H:i"|default:"Never" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <!-- Profile Details -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Profile Details</h5>
+            </div>
+            <div class="card-body">
+                {% if profile.bio %}
+                    <div class="mb-3">
+                        <h6>Bio</h6>
+                        <p>{{ profile.bio }}</p>
+                    </div>
+                {% endif %}
+                
+                <div class="row">
+                    {% if profile.phone %}
+                    <div class="col-md-6 mb-3">
+                        <h6><i class="bi bi-telephone"></i> Phone</h6>
+                        <p>{{ profile.phone }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if profile.address %}
+                    <div class="col-md-6 mb-3">
+                        <h6><i class="bi bi-geo-alt"></i> Address</h6>
+                        <p>{{ profile.address }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if not profile.bio and not profile.phone and not profile.address %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-info-circle fs-1"></i>
+                        <p>No additional profile information provided.</p>
+                        <a href="{% url 'profile_update' %}" class="btn btn-primary">
+                            <i class="bi bi-pencil"></i> Add Profile Information
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Statistics (for lawyers and paralegals) -->
+        {% if user.role in 'lawyer,paralegal' %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">My Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h3 class="text-primary">{{ user.get_assigned_cases_count }}</h3>
+                            <small class="text-muted">Assigned Cases</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h3 class="text-success">{{ user.get_open_cases_count }}</h3>
+                            <small class="text-muted">Open Cases</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h3 class="text-info">{{ user.get_time_entries_count }}</h3>
+                            <small class="text-muted">Time Entries</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <h3 class="text-warning">{{ user.get_uploaded_documents_count }}</h3>
+                        <small class="text-muted">Documents Uploaded</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Security Settings -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">Security Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Two-Factor Authentication</h6>
+                        {% if user.is_2fa_enabled %}
+                            <p class="text-success">
+                                <i class="bi bi-shield-check"></i> 2FA is enabled for your account
+                            </p>
+                            <button class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-shield-x"></i> Disable 2FA
+                            </button>
+                        {% else %}
+                            <p class="text-warning">
+                                <i class="bi bi-shield-exclamation"></i> 2FA is not enabled
+                            </p>
+                            <a href="#" class="btn btn-outline-success btn-sm">
+                                <i class="bi bi-shield-plus"></i> Enable 2FA
+                            </a>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Password</h6>
+                        <p class="text-muted">Last changed: {{ user.password_changed|default:"Unknown" }}</p>
+                        <a href="{% url 'password_change' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-key"></i> Change Password
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Expense{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-plus-circle me-2"></i>Add New Expense
+            </h1>
+            <p class="text-muted mb-0">Record a new business expense</p>
+        </div>
+        <div>
+            <a href="{% url 'expenses_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Back to Expenses
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Expense Form -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-file-earmark-plus me-2"></i>Expense Details
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="description" class="form-label">Description *</label>
+                                <input type="text" class="form-control" id="description" name="description" 
+                                       placeholder="Brief description of the expense..." required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="expense_date" class="form-label">Expense Date *</label>
+                                <input type="date" class="form-control" id="expense_date" name="expense_date" 
+                                       value="{{ today }}" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="amount" class="form-label">Amount *</label>
+                                <input type="number" step="0.01" class="form-control" id="amount" name="amount" 
+                                       min="0" placeholder="0.00" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="currency" class="form-label">Currency *</label>
+                                <select class="form-select" id="currency" name="currency" required>
+                                    {% for currency in currencies %}
+                                        <option value="{{ currency.id }}" {% if currency.is_base_currency %}selected{% endif %}>
+                                            {{ currency.code }} - {{ currency.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="category" class="form-label">Category *</label>
+                                <select class="form-select" id="category" name="category" required>
+                                    <option value="">Select category...</option>
+                                    {% for category in categories %}
+                                        <option value="{{ category.id }}" 
+                                                data-billable="{{ category.is_billable|yesno:'true,false' }}"
+                                                data-markup="{{ category.default_markup_percentage }}">
+                                            {{ category.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">
+                                    <a href="{% url 'expense_categories' %}" target="_blank">
+                                        <i class="bi bi-plus-circle me-1"></i>Manage Categories
+                                    </a>
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="vendor" class="form-label">Vendor/Supplier</label>
+                                <input type="text" class="form-control" id="vendor" name="vendor" 
+                                       placeholder="Company or person paid...">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="case" class="form-label">Associated Case</label>
+                                <select class="form-select" id="case" name="case">
+                                    <option value="">General Expense</option>
+                                    {% for case in cases %}
+                                        <option value="{{ case.id }}">
+                                            {{ case.title }} ({{ case.client.full_name }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Additional Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                      placeholder="Any additional details about this expense..."></textarea>
+                        </div>
+
+                        <!-- Receipt Upload -->
+                        <div class="mb-4">
+                            <label for="receipt" class="form-label">Receipt/Document</label>
+                            <input type="file" class="form-control" id="receipt" name="receipt" 
+                                   accept="image/*,.pdf,.doc,.docx">
+                            <small class="form-text text-muted">
+                                Supported formats: Images (JPG, PNG), PDF, Word documents. Max size: 10MB
+                            </small>
+                        </div>
+
+                        <!-- Reimbursement Settings -->
+                        <div class="card border-light mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Reimbursement Settings</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="is_billable" name="is_billable">
+                                            <label class="form-check-label" for="is_billable">
+                                                <strong>Billable to Client</strong>
+                                            </label>
+                                            <small class="d-block text-muted">This expense can be charged to the client</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="is_reimbursable" name="is_reimbursable" checked>
+                                            <label class="form-check-label" for="is_reimbursable">
+                                                <strong>Reimbursable</strong>
+                                            </label>
+                                            <small class="d-block text-muted">This expense should be reimbursed</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-secondary" onclick="saveDraft()">
+                                <i class="bi bi-save me-2"></i>Save as Draft
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-2"></i>Submit Expense
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Quick Tips -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-lightbulb me-2"></i>Expense Tips
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item border-0 px-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>Always keep receipts</strong>
+                            <small class="d-block text-muted">Upload receipt for faster approval</small>
+                        </div>
+                        <div class="list-group-item border-0 px-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>Be descriptive</strong>
+                            <small class="d-block text-muted">Clear descriptions help with categorization</small>
+                        </div>
+                        <div class="list-group-item border-0 px-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>Link to cases</strong>
+                            <small class="d-block text-muted">Associate expenses with specific cases when possible</small>
+                        </div>
+                        <div class="list-group-item border-0 px-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>Submit promptly</strong>
+                            <small class="d-block text-muted">Record expenses as soon as possible</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Expenses -->
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-clock-history me-2"></i>Recent Expenses
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <!-- Mock recent expenses - replace with real data -->
+                        <div class="list-group-item border-0 px-0 d-flex justify-content-between">
+                            <div>
+                                <div class="fw-bold">Legal Research Database</div>
+                                <small class="text-muted">2 days ago</small>
+                            </div>
+                            <span class="text-success">€89.00</span>
+                        </div>
+                        <div class="list-group-item border-0 px-0 d-flex justify-content-between">
+                            <div>
+                                <div class="fw-bold">Client Meeting Lunch</div>
+                                <small class="text-muted">5 days ago</small>
+                            </div>
+                            <span class="text-success">€45.50</span>
+                        </div>
+                        <div class="list-group-item border-0 px-0 d-flex justify-content-between">
+                            <div>
+                                <div class="fw-bold">Office Supplies</div>
+                                <small class="text-muted">1 week ago</small>
+                            </div>
+                            <span class="text-success">€23.75</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Save expense as draft
+function saveDraft() {
+    const form = document.querySelector('form');
+    const formData = new FormData(form);
+    formData.set('status', 'draft');
+    
+    fetch('/billing/expenses/create/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Expense saved as draft!');
+            window.location.href = '/billing/expenses/';
+        } else {
+            alert('Error saving expense: ' + data.error);
+        }
+    });
+}
+
+// Auto-calculate tax if needed
+document.getElementById('amount').addEventListener('input', function() {
+    // Add any automatic calculations here
+});
+
+// Show/hide case selection based on billable checkbox
+document.getElementById('is_billable').addEventListener('change', function() {
+    const caseField = document.getElementById('case').closest('.col-md-6');
+    if (this.checked) {
+        caseField.style.display = 'block';
+        document.getElementById('case').required = true;
+    } else {
+        document.getElementById('case').required = false;
+    }
+});
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+</script>
+
+<style>
+.form-control:focus, .form-select:focus {
+    border-color: #bac8f3;
+    box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
+}
+
+.card .card-header {
+    background-color: #f8f9fc;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.list-group-item {
+    border: none !important;
+}
+</style>
+{% endblock %}

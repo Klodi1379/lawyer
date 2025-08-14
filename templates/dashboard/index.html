@@ -1,0 +1,621 @@
+<!-- templates/dashboard/index.html - Main Dashboard Template -->
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Dashboard - Legal Case Manager{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Dashboard</li>
+{% endblock %}
+
+{% block content %}
+<!-- Welcome Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-1">Mirë se vini, {{ user.get_full_name|default:user.username }}!</h1>
+                <p class="text-muted mb-0">
+                    {% if dashboard_type == 'admin' %}
+                        Këtu është pamja e përgjithshme e sistemit tuaj të menaxhimit të rasteve juridike.
+                    {% elif dashboard_type == 'lawyer' %}
+                        Këtu janë rastet dhe detyrat tuaja aktuale.
+                    {% else %}
+                        Këtu mund të ndiqni ecurinë e rasteve tuaja.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="text-muted">
+                <i class="bi bi-calendar3"></i>
+                {{ current_time|date:"l, j F Y" }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+{% if dashboard_type == 'admin' %}
+<!-- Admin Dashboard -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-primary" id="stat-total_cases">{{ total_cases }}</div>
+                    <div class="stat-label">Raste Totale</div>
+                    {% if new_cases_week > 0 %}
+                    <small class="text-success">
+                        <i class="bi bi-arrow-up"></i> +{{ new_cases_week }} këtë javë
+                    </small>
+                    {% endif %}
+                </div>
+                <div class="stat-icon text-primary">
+                    <i class="bi bi-folder"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-success" id="stat-total_clients">{{ total_clients }}</div>
+                    <div class="stat-label">Klientë Aktivë</div>
+                    {% if new_clients_week > 0 %}
+                    <small class="text-success">
+                        <i class="bi bi-arrow-up"></i> +{{ new_clients_week }} këtë javë
+                    </small>
+                    {% endif %}
+                </div>
+                <div class="stat-icon text-success">
+                    <i class="bi bi-people"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-info" id="stat-total_documents">{{ total_documents }}</div>
+                    <div class="stat-label">Dokumente</div>
+                    {% if new_documents_week > 0 %}
+                    <small class="text-success">
+                        <i class="bi bi-arrow-up"></i> +{{ new_documents_week }} këtë javë
+                    </small>
+                    {% endif %}
+                </div>
+                <div class="stat-icon text-info">
+                    <i class="bi bi-file-earmark-text"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-warning" id="stat-total_users">{{ total_users }}</div>
+                    <div class="stat-label">Përdorues Aktivë</div>
+                    <small class="text-muted">
+                        Në sistem
+                    </small>
+                </div>
+                <div class="stat-icon text-warning">
+                    <i class="bi bi-person-check"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Charts Row -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-3">
+        <div class="chart-container">
+            <h5 class="chart-title">Trendet Mujore të Rasteve</h5>
+            <div style="height: 300px;">
+                <canvas id="monthlyTrendsChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-3">
+        <div class="chart-container">
+            <h5 class="chart-title">Statusi i Rasteve</h5>
+            <div style="height: 300px;">
+                <canvas id="caseStatusChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Tables Row -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-3">
+        <div class="table-container">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Avokatët më Aktivë</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Avokati</th>
+                            <th>Raste</th>
+                            <th>Performance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lawyer in top_lawyers %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                         style="width: 32px; height: 32px;">
+                                        <i class="bi bi-person text-white"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ lawyer.get_full_name|default:lawyer.username }}</div>
+                                        <small class="text-muted">{{ lawyer.get_role_display }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">{{ lawyer.case_count }}</span>
+                            </td>
+                            <td>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" 
+                                         style="width: {{ lawyer.case_count|floatformat:0 }}%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">Nuk ka të dhëna</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6 mb-3">
+        <div class="table-container">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Deadline-e të Afërta</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Rasti</th>
+                            <th>Deadline</th>
+                            <th>Prioriteti</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for deadline in upcoming_deadlines %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ deadline.title }}</div>
+                                <small class="text-muted">{{ deadline.case.title|truncatechars:30 }}</small>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ deadline.starts_at|date:"d M Y" }}</small>
+                            </td>
+                            <td>
+                                {% if deadline.starts_at|timeuntil|slice:":1" == "1" %}
+                                    <span class="badge-status priority-high">E lartë</span>
+                                {% elif deadline.starts_at|timeuntil|slice:":3" == "2-3" %}
+                                    <span class="badge-status priority-medium">Mesatare</span>
+                                {% else %}
+                                    <span class="badge-status priority-low">E ulët</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">Nuk ka deadline të afërta</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% elif dashboard_type == 'lawyer' %}
+<!-- Lawyer Dashboard -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-primary" id="stat-total_my_cases">{{ total_my_cases }}</div>
+                    <div class="stat-label">Rastet e Mia</div>
+                </div>
+                <div class="stat-icon text-primary">
+                    <i class="bi bi-briefcase"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-success" id="stat-open_cases">{{ open_cases }}</div>
+                    <div class="stat-label">Raste Aktivë</div>
+                </div>
+                <div class="stat-icon text-success">
+                    <i class="bi bi-folder2-open"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-info" id="stat-closed_cases">{{ closed_cases }}</div>
+                    <div class="stat-label">Raste të Mbyllura</div>
+                </div>
+                <div class="stat-icon text-info">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-warning" id="stat-total_hours_week">{{ total_hours_week }}</div>
+                    <div class="stat-label">Orë këtë Javë</div>
+                </div>
+                <div class="stat-icon text-warning">
+                    <i class="bi bi-clock"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lawyer Charts and Tables -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-3">
+        <div class="table-container">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Deadline-et e Mia të Afërta</h6>
+            </div>
+            <div class="table-responsive custom-scrollbar" style="max-height: 400px;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Rasti</th>
+                            <th>Data</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for deadline in my_deadlines %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ deadline.title }}</div>
+                                <small class="text-muted">{{ deadline.notes|truncatechars:40 }}</small>
+                            </td>
+                            <td>
+                                <a href="#" class="text-decoration-none">{{ deadline.case.title|truncatechars:25 }}</a>
+                            </td>
+                            <td>
+                                <div>{{ deadline.starts_at|date:"d M Y" }}</div>
+                                <small class="text-muted">{{ deadline.starts_at|time:"H:i" }}</small>
+                            </td>
+                            <td>
+                                {% if deadline.is_deadline %}
+                                    <span class="badge bg-danger">Deadline</span>
+                                {% else %}
+                                    <span class="badge bg-info">Event</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">
+                                <i class="bi bi-calendar-x display-4 text-muted d-block mb-2"></i>
+                                Nuk ka deadline të afërta
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-3">
+        <div class="chart-container">
+            <h5 class="chart-title">Rastet e Mia sipas Statusit</h5>
+            <div style="height: 300px;">
+                <canvas id="myCaseStatusChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- Client Dashboard -->
+<div class="row mb-4">
+    <div class="col-xl-4 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-primary" id="stat-total_cases">{{ total_cases }}</div>
+                    <div class="stat-label">Rastet e Mia</div>
+                </div>
+                <div class="stat-icon text-primary">
+                    <i class="bi bi-folder"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-success" id="stat-active_cases">{{ active_cases }}</div>
+                    <div class="stat-label">Raste Aktivë</div>
+                </div>
+                <div class="stat-icon text-success">
+                    <i class="bi bi-folder2-open"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-info">{{ invoice_summary.total|default:0|floatformat:0 }}</div>
+                    <div class="stat-label">Total Fatura (ALL)</div>
+                </div>
+                <div class="stat-icon text-info">
+                    <i class="bi bi-receipt"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Client Tables -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-3">
+        <div class="table-container">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Eventet e Ardhshme</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Rasti</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in my_events %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ event.title }}</div>
+                                <small class="text-muted">{{ event.notes|truncatechars:40 }}</small>
+                            </td>
+                            <td>{{ event.case.title|truncatechars:30 }}</td>
+                            <td>
+                                <div>{{ event.starts_at|date:"d M Y" }}</div>
+                                <small class="text-muted">{{ event.starts_at|time:"H:i" }}</small>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">
+                                Nuk ka evente të ardhshme
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-3">
+        <div class="table-container">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Faturat e Fundit</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Shuma</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in my_invoices %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ invoice.total_amount }} ALL</div>
+                                <small class="text-muted">{{ invoice.issued_at|date:"d M Y" }}</small>
+                            </td>
+                            <td>
+                                {% if invoice.paid %}
+                                    <span class="badge bg-success">Paguar</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Në pritje</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center text-muted">Nuk ka fatura</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Activities (for all users) -->
+<div class="row">
+    <div class="col-12">
+        <div class="table-container">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Aktivitetet e Fundit</h6>
+                <small class="text-muted">Përditësuar automatikisht</small>
+            </div>
+            <div class="card-body p-0">
+                {% if dashboard_type == 'admin' %}
+                    {% for activity in recent_activities %}
+                    <div class="activity-item">
+                        <div class="d-flex align-items-center">
+                            <div class="activity-icon bg-light text-primary me-3">
+                                <i class="bi bi-person"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">{{ activity.user.get_full_name|default:activity.user.username }}</div>
+                                <div class="text-muted small">{{ activity.action }} - {{ activity.target_type }}</div>
+                            </div>
+                            <div class="text-muted small">
+                                {{ activity.created_at|timesince }} më parë
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4 text-muted">
+                        Nuk ka aktivitete të fundit
+                    </div>
+                    {% endfor %}
+                {% elif dashboard_type == 'lawyer' %}
+                    {% for activity in my_activities %}
+                    <div class="activity-item">
+                        <div class="d-flex align-items-center">
+                            <div class="activity-icon bg-light text-primary me-3">
+                                <i class="bi bi-activity"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">{{ activity.action }}</div>
+                                <div class="text-muted small">{{ activity.target_type }} - {{ activity.target_id }}</div>
+                            </div>
+                            <div class="text-muted small">
+                                {{ activity.created_at|timesince }} më parë
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4 text-muted">
+                        Nuk ka aktivitete të fundit
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-info-circle display-4 text-muted d-block mb-2"></i>
+                        Aktivitetet tuaja do të shfaqen këtu
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize charts based on dashboard type
+document.addEventListener('DOMContentLoaded', function() {
+    {% if dashboard_type == 'admin' %}
+        initAdminCharts();
+    {% elif dashboard_type == 'lawyer' %}
+        initLawyerCharts();
+    {% endif %}
+});
+
+{% if dashboard_type == 'admin' %}
+function initAdminCharts() {
+    // Monthly trends chart
+    const monthlyCtx = document.getElementById('monthlyTrendsChart').getContext('2d');
+    const monthlyData = {{ monthly_cases|safe }};
+    
+    new Chart(monthlyCtx, {
+        type: 'line',
+        data: {
+            labels: monthlyData.map(item => item.month),
+            datasets: [{
+                label: 'Raste të Reja',
+                data: monthlyData.map(item => item.count),
+                borderColor: chartColors.primary,
+                backgroundColor: chartColors.primary + '20',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            ...defaultChartOptions,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+
+    // Case status pie chart
+    const statusCtx = document.getElementById('caseStatusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for item in case_status_data %}'{{ item.status|capfirst }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for item in case_status_data %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: [
+                    chartColors.success,
+                    chartColors.warning,
+                    chartColors.info,
+                    chartColors.danger
+                ]
+            }]
+        },
+        options: defaultChartOptions
+    });
+}
+{% elif dashboard_type == 'lawyer' %}
+function initLawyerCharts() {
+    // My case status chart
+    const ctx = document.getElementById('myCaseStatusChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for item in my_case_status %}'{{ item.status|capfirst }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for item in my_case_status %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: [
+                    chartColors.success,
+                    chartColors.warning,
+                    chartColors.info,
+                    chartColors.danger
+                ]
+            }]
+        },
+        options: defaultChartOptions
+    });
+}
+{% endif %}
+</script>
+{% endblock %}

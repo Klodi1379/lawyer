@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}Layout Test{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="bi bi-check-circle text-success me-2"></i>
+                Layout Test Page
+            </h1>
+            
+            <div class="alert alert-success" role="alert">
+                <h4 class="alert-heading">Layout Test Successful!</h4>
+                <p class="mb-0">If you can see this page with the sidebar and navigation working properly, the layout is functioning correctly.</p>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Test Statistics</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Cases:</span>
+                                    <strong>{{ test_data.cases_count }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Documents:</span>
+                                    <strong>{{ test_data.documents_count }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Events:</span>
+                                    <strong>{{ test_data.events_count }}</strong>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Layout Features</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Desktop Features:</h6>
+                                    <ul>
+                                        <li>Fixed sidebar navigation</li>
+                                        <li>Responsive main content</li>
+                                        <li>Sticky top navbar</li>
+                                        <li>Bootstrap components</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Mobile Features:</h6>
+                                    <ul>
+                                        <li>Collapsible sidebar</li>
+                                        <li>Touch-friendly interface</li>
+                                        <li>Responsive grid system</li>
+                                        <li>Mobile-optimized navigation</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Testing Instructions:</h5>
+                        <ol>
+                            <li>Resize the browser window to test responsive behavior</li>
+                            <li>On mobile size, use the hamburger menu to toggle the sidebar</li>
+                            <li>Check that all navigation links are accessible</li>
+                            <li>Verify that content doesn't overlap with the sidebar</li>
+                            <li>Test all interactive elements (buttons, links, etc.)</li>
+                        </ol>
+                        
+                        <button class="btn btn-primary me-2" onclick="alert('Button test successful!')">
+                            <i class="bi bi-check me-1"></i>Test Button
+                        </button>
+                        
+                        <button class="btn btn-outline-secondary" onclick="window.location.reload()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Reload Page
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

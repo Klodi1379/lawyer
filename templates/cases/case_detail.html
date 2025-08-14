@@ -1,0 +1,503 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ case.title }} - Legal Case Manager{% endblock %}
+
+{% block content %}
+<!-- Case Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'case_list' %}">Cases</a></li>
+                <li class="breadcrumb-item active">{{ case.uid }}</li>
+            </ol>
+        </nav>
+        <h2>{{ case.title }}</h2>
+        <p class="text-muted">Case ID: <code>{{ case.uid }}</code></p>
+    </div>
+    <div>
+        {% if user.role in 'admin,lawyer' or case.assigned_to == user %}
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addDocumentModal">
+                <i class="bi bi-file-earmark-plus"></i> Add Document
+            </button>
+            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addEventModal">
+                <i class="bi bi-calendar-plus"></i> Add Event
+            </button>
+            <button type="button" class="btn btn-outline-info">
+                <i class="bi bi-pencil"></i> Edit Case
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Case Overview -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Case Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Client:</dt>
+                            <dd class="col-sm-8">
+                                <strong>{{ case.client.full_name }}</strong>
+                                {% if case.client.organization %}
+                                    <br><small class="text-muted">{{ case.client.organization }}</small>
+                                {% endif %}
+                                {% if case.client.email %}
+                                    <br><small><i class="bi bi-envelope"></i> {{ case.client.email }}</small>
+                                {% endif %}
+                                {% if case.client.phone %}
+                                    <br><small><i class="bi bi-telephone"></i> {{ case.client.phone }}</small>
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-4">Assigned To:</dt>
+                            <dd class="col-sm-8">
+                                {% if case.assigned_to %}
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2"
+                                             style="width: 32px; height: 32px;">
+                                            <small class="text-white fw-bold">{{ case.assigned_to.first_name.0 }}{{ case.assigned_to.last_name.0 }}</small>
+                                        </div>
+                                        {{ case.assigned_to.get_full_name }}
+                                        <br><small class="text-muted">{{ case.assigned_to.get_role_display }}</small>
+                                    </div>
+                                {% else %}
+                                    <span class="text-warning">Unassigned</span>
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Type:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-secondary">{{ case.get_case_type_display }}</span>
+                            </dd>
+                            
+                            <dt class="col-sm-4">Status:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-{% if case.status == 'open' %}success{% elif case.status == 'closed' %}secondary{% elif case.status == 'in_court' %}primary{% else %}warning{% endif %} fs-6">
+                                    {{ case.get_status_display }}
+                                </span>
+                            </dd>
+                            
+                            <dt class="col-sm-4">Created:</dt>
+                            <dd class="col-sm-8">{{ case.created_at|date:"F d, Y" }}</dd>
+                            
+                            <dt class="col-sm-4">Last Updated:</dt>
+                            <dd class="col-sm-8">{{ case.updated_at|date:"F d, Y H:i" }}</dd>
+                        </dl>
+                    </div>
+                </div>
+                
+                {% if case.description %}
+                <hr>
+                <h6>Description</h6>
+                <p>{{ case.description|linebreaks }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Quick Stats -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-graph-up"></i> Case Statistics</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary">{{ case.documents.count }}</h4>
+                        <small class="text-muted">Documents</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">{{ case.events.count }}</h4>
+                        <small class="text-muted">Events</small>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-info">{{ total_hours|floatformat:1 }}</h4>
+                        <small class="text-muted">Hours Logged</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-warning">${{ total_billed|floatformat:2 }}</h4>
+                        <small class="text-muted">Total Billed</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Upcoming Deadlines -->
+        {% if upcoming_deadlines %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-clock"></i> Upcoming Deadlines</h6>
+            </div>
+            <div class="card-body">
+                {% for deadline in upcoming_deadlines %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <div class="fw-bold">{{ deadline.title }}</div>
+                        <small class="text-muted">{{ deadline.starts_at|date:"M d, Y H:i" }}</small>
+                    </div>
+                    <span class="badge bg-danger">{{ deadline.starts_at|timeuntil }}</span>
+                </div>
+                {% if not forloop.last %}<hr class="my-2">{% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Tabs for different sections -->
+<div class="card">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" id="caseDetailTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="documents-tab" data-bs-toggle="tab" data-bs-target="#documents" type="button" role="tab">
+                    <i class="bi bi-file-earmark"></i> Documents ({{ case.documents.count }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="events-tab" data-bs-toggle="tab" data-bs-target="#events" type="button" role="tab">
+                    <i class="bi bi-calendar"></i> Events ({{ case.events.count }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="time-tab" data-bs-toggle="tab" data-bs-target="#time" type="button" role="tab">
+                    <i class="bi bi-clock-history"></i> Time Entries ({{ case.time_entries.count }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="invoices-tab" data-bs-toggle="tab" data-bs-target="#invoices" type="button" role="tab">
+                    <i class="bi bi-receipt"></i> Invoices ({{ case.invoices.count }})
+                </button>
+            </li>
+        </ul>
+    </div>
+    <div class="card-body">
+        <div class="tab-content" id="caseDetailTabsContent">
+            <!-- Documents Tab -->
+            <div class="tab-pane fade show active" id="documents" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6><i class="bi bi-file-earmark-text"></i> Case Documents</h6>
+                    {% if user.role in 'admin,lawyer,paralegal' %}
+                    <a href="{% url 'case_document_upload' case_pk=case.pk %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-cloud-upload"></i> Upload Document
+                    </a>
+                    {% endif %}
+                </div>
+                
+                {% if case.documents.all %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Document</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Version</th>
+                                <th>Size</th>
+                                <th>Uploaded By</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for document in case.documents.all %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="{{ document.get_file_icon }} text-primary me-2"></i>
+                                        <div>
+                                            <a href="{% url 'document_detail' document.pk %}" class="text-decoration-none">
+                                                <strong>{{ document.title }}</strong>
+                                            </a>
+                                            {% if document.is_confidential %}
+                                                <i class="bi bi-lock-fill text-danger ms-1" title="Confidential"></i>
+                                            {% endif %}
+                                            {% if document.description %}
+                                            <br><small class="text-muted">{{ document.description|truncatechars:40 }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ document.get_doc_type_display }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if document.status == 'final' %}success{% elif document.status == 'approved' %}info{% elif document.status == 'review' %}warning{% else %}secondary{% endif %}">
+                                        {{ document.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">v{{ document.version }}</span>
+                                    {% if document.download_count > 0 %}
+                                    <br><small class="text-muted">{{ document.download_count }} downloads</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ document.get_human_readable_size }}</small>
+                                </td>
+                                <td>
+                                    {{ document.uploaded_by.get_full_name|default:document.uploaded_by.username }}
+                                    <br><small class="text-muted">{{ document.created_at|date:"M d, Y" }}</small>
+                                </td>
+                                <td>
+                                    {{ document.created_at|date:"M d, Y" }}
+                                    {% if document.updated_at != document.created_at %}
+                                    <br><small class="text-muted">Modified: {{ document.updated_at|date:"M d" }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'document_detail' document.pk %}" class="btn btn-outline-info" title="View Details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if document.file %}
+                                        <a href="{% url 'document_download' document.pk %}" class="btn btn-outline-success" title="Download">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if user.role in 'admin,lawyer,paralegal' and user == document.uploaded_by or user == document.case.assigned_to or user.role == 'admin' %}
+                                        <a href="{% url 'document_update' document.pk %}" class="btn btn-outline-warning" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Document Summary -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h5 class="text-primary">{{ case.documents.count }}</h5>
+                                <small class="text-muted">Total Documents</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h5 class="text-info">{{ documents_total_size|filesizeformat|default:"0 B" }}</h5>
+                                <small class="text-muted">Total Size</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-file-earmark-x fs-1 text-muted"></i>
+                    <p class="text-muted mt-2">No documents uploaded yet.</p>
+                    {% if user.role in 'admin,lawyer,paralegal' %}
+                    <a href="{% url 'case_document_upload' case_pk=case.pk %}" class="btn btn-primary">
+                        <i class="bi bi-cloud-upload"></i> Upload First Document
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Events Tab -->
+            <div class="tab-pane fade" id="events" role="tabpanel">
+                {% if case.events.all %}
+                <div class="timeline">
+                    {% for event in case.events.all %}
+                    <div class="timeline-item mb-3">
+                        <div class="row">
+                            <div class="col-md-2 text-end">
+                                <small class="text-muted">{{ event.starts_at|date:"M d, Y" }}</small>
+                                <br><small class="text-muted">{{ event.starts_at|time:"H:i" }}</small>
+                            </div>
+                            <div class="col-md-10">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="card-title">
+                                                    {% if event.is_deadline %}
+                                                        <i class="bi bi-alarm text-danger"></i>
+                                                    {% else %}
+                                                        <i class="bi bi-calendar-event text-primary"></i>
+                                                    {% endif %}
+                                                    {{ event.title }}
+                                                </h6>
+                                                {% if event.notes %}
+                                                    <p class="card-text">{{ event.notes }}</p>
+                                                {% endif %}
+                                                <small class="text-muted">
+                                                    Created by {{ event.created_by.get_full_name|default:event.created_by.username }}
+                                                </small>
+                                            </div>
+                                            {% if user.role in 'admin,lawyer' or event.created_by == user %}
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-secondary">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-outline-danger" onclick="confirmDelete('event', {{ event.id }})">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-calendar-x fs-1 text-muted"></i>
+                    <p class="text-muted mt-2">No events scheduled yet.</p>
+                    {% if user.role in 'admin,lawyer' or case.assigned_to == user %}
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEventModal">
+                        <i class="bi bi-calendar-plus"></i> Add First Event
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Time Entries Tab -->
+            <div class="tab-pane fade" id="time" role="tabpanel">
+                {% if case.time_entries.all %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Description</th>
+                                <th>Time</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in case.time_entries.all %}
+                            <tr>
+                                <td>{{ entry.user.get_full_name|default:entry.user.username }}</td>
+                                <td>{{ entry.description|default:"Time entry" }}</td>
+                                <td>
+                                    <strong>{{ entry.minutes|floatformat:0 }} min</strong>
+                                    <small class="text-muted">({{ entry.minutes|floatformat:1 }}h)</small>
+                                </td>
+                                <td>{{ entry.created_at|date:"M d, Y H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <th colspan="2">Total Time</th>
+                                <th>{{ total_minutes }} min ({{ total_hours|floatformat:1 }}h)</th>
+                                <th></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-clock-history fs-1 text-muted"></i>
+                    <p class="text-muted mt-2">No time entries logged yet.</p>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Invoices Tab -->
+            <div class="tab-pane fade" id="invoices" role="tabpanel">
+                {% if case.invoices.all %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Invoice #</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Issued</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in case.invoices.all %}
+                            <tr>
+                                <td>#{{ invoice.id|stringformat:"05d" }}</td>
+                                <td>${{ invoice.total_amount|floatformat:2 }}</td>
+                                <td>
+                                    {% if invoice.paid %}
+                                        <span class="badge bg-success">Paid</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Unpaid</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ invoice.issued_at|date:"M d, Y" }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary">
+                                            <i class="bi bi-download"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <th>Total</th>
+                                <th>${{ total_billed|floatformat:2 }}</th>
+                                <th>
+                                    {% if total_paid == total_billed %}
+                                        <span class="badge bg-success">Fully Paid</span>
+                                    {% elif total_paid > 0 %}
+                                        <span class="badge bg-warning">Partially Paid</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Unpaid</span>
+                                    {% endif %}
+                                </th>
+                                <th colspan="2"></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-receipt fs-1 text-muted"></i>
+                    <p class="text-muted mt-2">No invoices created yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(type, id) {
+    if (confirm(`Are you sure you want to delete this ${type}?`)) {
+        // Here you would make an AJAX request to delete the item
+        alert(`Delete ${type} functionality would be implemented here.`);
+    }
+}
+</script>
+{% endblock %}

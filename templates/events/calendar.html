@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendar - Legal Case Manager{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-calendar3"></i> Calendar & Events</h2>
+    <div class="btn-group" role="group">
+        <a href="{% url 'event_create' %}" class="btn btn-info">
+            <i class="bi bi-plus-circle"></i> New Event
+        </a>
+        <a href="{% url 'event_list' %}" class="btn btn-outline-info">
+            <i class="bi bi-list-ul"></i> List View
+        </a>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center border-primary">
+            <div class="card-body">
+                <h5 class="text-primary" id="todayEvents">0</h5>
+                <small class="text-muted">Today's Events</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-warning">
+            <div class="card-body">
+                <h5 class="text-warning" id="upcomingDeadlines">0</h5>
+                <small class="text-muted">Upcoming Deadlines</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-success">
+            <div class="card-body">
+                <h5 class="text-success" id="thisWeekEvents">0</h5>
+                <small class="text-muted">This Week</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-info">
+            <div class="card-body">
+                <h5 class="text-info" id="nextWeekEvents">0</h5>
+                <small class="text-muted">Next Week</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Calendar -->
+<div class="card">
+    <div class="card-header">
+        <div class="row align-items-center">
+            <div class="col">
+                <h5 class="mb-0">Event Calendar</h5>
+            </div>
+            <div class="col-auto">
+                <!-- Calendar view controls will be handled by FullCalendar -->
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary" id="prevBtn">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="todayBtn">
+                        Today
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="nextBtn">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="calendar"></div>
+    </div>
+</div>
+
+<!-- Event Detail Modal -->
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventModalTitle">Event Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="eventModalBody">
+                <!-- Event details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" class="btn btn-info" id="editEventBtn">Edit Event</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Spinner -->
+<div class="d-none" id="loadingSpinner">
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<!-- FullCalendar CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+<style>
+.fc-event {
+    cursor: pointer;
+}
+.fc-event-past {
+    opacity: 0.7;
+}
+.fc-event-deadline {
+    border-left: 4px solid #dc3545 !important;
+}
+.fc-event-urgent {
+    border-left: 4px solid #fd7e14 !important;
+}
+.fc-event-high {
+    border-left: 4px solid #ffc107 !important;
+}
+.fc-daygrid-event {
+    border-radius: 3px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+    let calendar;
+
+    // Initialize calendar
+    calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        height: 'auto',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+        },
+        events: '{% url "calendar_api" %}',
+        
+        // Event styling
+        eventClassNames: function(arg) {
+            let classes = [];
+            
+            if (arg.event.extendedProps.is_deadline) {
+                classes.push('fc-event-deadline');
+            }
+            
+            if (arg.event.extendedProps.priority === 'urgent') {
+                classes.push('fc-event-urgent');
+            } else if (arg.event.extendedProps.priority === 'high') {
+                classes.push('fc-event-high');
+            }
+            
+            if (arg.event.extendedProps.is_past_due) {
+                classes.push('fc-event-past');
+            }
+            
+            return classes;
+        },
+        
+        // Event click handler
+        eventClick: function(info) {
+            showEventDetails(info.event);
+            info.jsEvent.preventDefault(); // Don't follow the link
+        },
+        
+        // Date click handler
+        dateClick: function(info) {
+            // Redirect to create event with pre-filled date
+            const date = info.dateStr;
+            window.location.href = `{% url 'event_create' %}?date=${date}`;
+        },
+        
+        // Loading handlers
+        loading: function(bool) {
+            if (bool) {
+                document.getElementById('loadingSpinner').classList.remove('d-none');
+            } else {
+                document.getElementById('loadingSpinner').classList.add('d-none');
+                updateStats();
+            }
+        }
+    });
+
+    calendar.render();
+
+    // Custom navigation buttons
+    document.getElementById('prevBtn').addEventListener('click', function() {
+        calendar.prev();
+    });
+    
+    document.getElementById('nextBtn').addEventListener('click', function() {
+        calendar.next();
+    });
+    
+    document.getElementById('todayBtn').addEventListener('click', function() {
+        calendar.today();
+    });
+
+    // Show event details in modal
+    function showEventDetails(event) {
+        const props = event.extendedProps;
+        const startDate = new Date(event.start);
+        const endDate = event.end ? new Date(event.end) : null;
+        
+        document.getElementById('eventModalTitle').textContent = event.title;
+        
+        let modalBody = `
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Case:</strong> ${props.case_title} (${props.case_uid})</p>
+                    <p><strong>Start:</strong> ${startDate.toLocaleString()}</p>
+                    ${endDate ? `<p><strong>End:</strong> ${endDate.toLocaleString()}</p>` : ''}
+                    <p><strong>Priority:</strong> 
+                        <span class="badge bg-${getPriorityColor(props.priority)}">${props.priority}</span>
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    ${props.location ? `<p><strong>Location:</strong> ${props.location}</p>` : ''}
+                    ${props.attendees ? `<p><strong>Attendees:</strong> ${props.attendees}</p>` : ''}
+                    ${props.is_deadline ? '<p><span class="badge bg-danger">Deadline</span></p>' : ''}
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('eventModalBody').innerHTML = modalBody;
+        document.getElementById('editEventBtn').href = `{% url 'event_update' pk=0 %}`.replace('0', event.id);
+        
+        eventModal.show();
+    }
+
+    function getPriorityColor(priority) {
+        switch(priority) {
+            case 'urgent': return 'danger';
+            case 'high': return 'warning';
+            case 'medium': return 'info';
+            case 'low': return 'secondary';
+            default: return 'primary';
+        }
+    }
+
+    // Update statistics
+    function updateStats() {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        const events = calendar.getEvents();
+        
+        let todayCount = 0;
+        let deadlineCount = 0;
+        let thisWeekCount = 0;
+        let nextWeekCount = 0;
+        
+        const thisWeekStart = getWeekStart(today);
+        const thisWeekEnd = new Date(thisWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const nextWeekEnd = new Date(thisWeekEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
+        
+        events.forEach(event => {
+            const eventDate = new Date(event.start);
+            const eventDateStr = eventDate.toISOString().split('T')[0];
+            
+            if (eventDateStr === todayStr) {
+                todayCount++;
+            }
+            
+            if (event.extendedProps.is_deadline && eventDate >= today) {
+                deadlineCount++;
+            }
+            
+            if (eventDate >= thisWeekStart && eventDate < thisWeekEnd) {
+                thisWeekCount++;
+            }
+            
+            if (eventDate >= thisWeekEnd && eventDate < nextWeekEnd) {
+                nextWeekCount++;
+            }
+        });
+        
+        document.getElementById('todayEvents').textContent = todayCount;
+        document.getElementById('upcomingDeadlines').textContent = deadlineCount;
+        document.getElementById('thisWeekEvents').textContent = thisWeekCount;
+        document.getElementById('nextWeekEvents').textContent = nextWeekCount;
+    }
+
+    function getWeekStart(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday as first day
+        return new Date(d.setDate(diff));
+    }
+});
+</script>
+{% endblock %}

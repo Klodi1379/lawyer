@@ -1,0 +1,871 @@
+{% load static %}
+
+<!-- Enhanced Top Navigation -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-gradient fixed-top" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+    <div class="container-fluid">
+        <!-- Mobile sidebar toggle -->
+        <button class="btn btn-outline-light d-lg-none me-3" type="button" id="sidebarToggle">
+            <i class="bi bi-list"></i>
+            <span class="visually-hidden">Toggle navigation</span>
+        </button>
+        
+        <!-- Brand -->
+        <a class="navbar-brand d-flex align-items-center" href="{% url 'dashboard' %}">
+            <i class="bi bi-briefcase me-2 fs-4"></i> 
+            <div class="d-flex flex-column">
+                <span class="fw-bold">Legal Manager</span>
+                <small class="opacity-75 d-none d-md-block" style="font-size: 0.7rem; margin-top: -3px;">
+                    Enhanced Case Management
+                </small>
+            </div>
+        </a>
+        
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <!-- Main Navigation Links -->
+            <ul class="navbar-nav me-auto">
+                {% if user.is_authenticated %}
+                    <!-- Dashboard -->
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" 
+                           href="{% url 'dashboard' %}">
+                            <i class="bi bi-house me-1"></i> 
+                            <span class="d-none d-lg-inline">Dashboard</span>
+                        </a>
+                    </li>
+
+                    <!-- Cases Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-folder me-1"></i> 
+                            <span class="d-none d-lg-inline">Cases</span>
+                            <span class="badge bg-light text-dark ms-2 d-lg-none">{{ user.get_assigned_cases_count }}</span>
+                        </a>
+                        <ul class="dropdown-menu shadow-lg">
+                            <li><h6 class="dropdown-header">
+                                <i class="bi bi-folder me-2"></i>Case Management
+                            </h6></li>
+                            <li><a class="dropdown-item" href="{% url 'case_list' %}">
+                                <i class="bi bi-list me-2"></i> View All Cases
+                                <span class="badge bg-primary ms-2">{{ user.get_assigned_cases_count }}</span>
+                            </a></li>
+                            {% if user.role in 'admin,lawyer' %}
+                            <li><a class="dropdown-item" href="{% url 'case_create' %}">
+                                <i class="bi bi-plus-circle me-2"></i> Create New Case
+                            </a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'case_list' %}?status=open">
+                                <i class="bi bi-folder-check me-2 text-success"></i> Open Cases
+                                <span class="badge bg-success ms-2">{{ user.get_open_cases_count }}</span>
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'case_list' %}?status=in_court">
+                                <i class="bi bi-building me-2 text-warning"></i> In Court
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'case_list' %}?status=closed">
+                                <i class="bi bi-folder-x me-2 text-secondary"></i> Closed Cases
+                                <span class="badge bg-secondary ms-2">{{ user.get_closed_cases_count }}</span>
+                            </a></li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Billing Dropdown - E REJA -->
+                    {% if user.role in 'admin,lawyer' %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center position-relative" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-receipt me-1"></i> 
+                            <span class="d-none d-lg-inline">Billing</span>
+                            <span class="badge bg-success rounded-pill position-absolute top-0 start-100 translate-middle" style="font-size: 0.6rem;">NEW</span>
+                        </a>
+                        <ul class="dropdown-menu shadow-lg">
+                            <li><h6 class="dropdown-header">
+                                <i class="bi bi-receipt me-2"></i>Billing & Finance
+                                <span class="badge bg-success ms-2">NEW</span>
+                            </h6></li>
+                            <li><a class="dropdown-item" href="{% url 'enhanced_dashboard' %}?view=billing">
+                                <i class="bi bi-speedometer2 me-2"></i> Billing Dashboard
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showInvoices()">
+                                <i class="bi bi-file-earmark-text me-2"></i> Invoices
+                                <span class="badge bg-warning ms-2" id="navbar-pending-invoices">0</span>
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="generateInvoice()">
+                                <i class="bi bi-plus-circle me-2 text-success"></i> Generate Invoice
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="showExpenses()">
+                                <i class="bi bi-credit-card me-2"></i> Expenses
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showPayments()">
+                                <i class="bi bi-cash-coin me-2"></i> Payments
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="generateFinancialReport()">
+                                <i class="bi bi-graph-up me-2"></i> Financial Reports
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Client Portal - PER KLIENTET -->
+                    {% if user.role == 'client' %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-house-door me-1"></i> 
+                            <span class="d-none d-lg-inline">My Portal</span>
+                        </a>
+                        <ul class="dropdown-menu shadow-lg">
+                            <li><h6 class="dropdown-header">
+                                <i class="bi bi-person me-2"></i>Client Portal
+                            </h6></li>
+                            <li><a class="dropdown-item" href="{% url 'dashboard' %}">
+                                <i class="bi bi-house me-2"></i> My Dashboard
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'case_list' %}">
+                                <i class="bi bi-folder me-2"></i> My Cases
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'document_list' %}">
+                                <i class="bi bi-file-earmark me-2"></i> Documents
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="showClientInvoices()">
+                                <i class="bi bi-receipt me-2"></i> Invoices
+                                <span class="badge bg-info ms-2" id="navbar-unpaid-invoices">0</span>
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showClientMessages()">
+                                <i class="bi bi-chat-square-text me-2"></i> Messages
+                                <span class="badge bg-danger ms-2" id="navbar-unread-messages">0</span>
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Clients Dropdown -->
+                    {% if user.role in 'admin,lawyer,paralegal' %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-people me-1"></i> 
+                            <span class="d-none d-lg-inline">Clients</span>
+                        </a>
+                        <ul class="dropdown-menu shadow-lg">
+                            <li><h6 class="dropdown-header">
+                                <i class="bi bi-people me-2"></i>Client Management
+                            </h6></li>
+                            <li><a class="dropdown-item" href="{% url 'client_list' %}">
+                                <i class="bi bi-list me-2"></i> View All Clients
+                            </a></li>
+                            {% if user.role in 'admin,lawyer' %}
+                            <li><a class="dropdown-item" href="{% url 'client_create' %}">
+                                <i class="bi bi-person-plus me-2"></i> Add New Client
+                            </a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'client_list' %}?type=individual">
+                                <i class="bi bi-person me-2"></i> Individual Clients
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'client_list' %}?type=organization">
+                                <i class="bi bi-building me-2"></i> Organizations
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Documents -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-file-earmark-text me-1"></i> 
+                            <span class="d-none d-lg-inline">Documents</span>
+                        </a>
+                        <ul class="dropdown-menu shadow-lg">
+                            <li><h6 class="dropdown-header">
+                                <i class="bi bi-file-earmark-text me-2"></i>Document Management
+                            </h6></li>
+                            <li><a class="dropdown-item" href="{% url 'document_list' %}">
+                                <i class="bi bi-files me-2"></i> All Documents
+                            </a></li>
+                            {% if user.role in 'admin,lawyer,paralegal' %}
+                            <li><a class="dropdown-item" href="{% url 'document_upload' %}">
+                                <i class="bi bi-cloud-upload me-2"></i> Upload Document
+                            </a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'document_editor' %}">
+                                <i class="bi bi-pencil-square me-2"></i> Document Editor
+                                <span class="badge bg-info ms-2">AI</span>
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'document_list' %}?status=draft">
+                                <i class="bi bi-file-earmark-plus me-2"></i> Drafts
+                                <span class="badge bg-warning ms-2" id="navbar-draft-docs">0</span>
+                            </a></li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Calendar -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-calendar me-1"></i> 
+                            <span class="d-none d-lg-inline">Calendar</span>
+                        </a>
+                        <ul class="dropdown-menu shadow-lg">
+                            <li><h6 class="dropdown-header">
+                                <i class="bi bi-calendar me-2"></i>Calendar & Events
+                            </h6></li>
+                            <li><a class="dropdown-item" href="{% url 'event_calendar' %}">
+                                <i class="bi bi-calendar3-event me-2"></i> Calendar View
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'event_list' %}">
+                                <i class="bi bi-list-ul me-2"></i> Events List
+                            </a></li>
+                            {% if user.role in 'admin,lawyer,paralegal' %}
+                            <li><a class="dropdown-item" href="{% url 'event_create' %}">
+                                <i class="bi bi-plus-circle me-2"></i> New Event
+                            </a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'event_list' %}?deadline=true">
+                                <i class="bi bi-clock me-2 text-danger"></i> Deadlines
+                                <span class="badge bg-danger ms-2" id="navbar-deadlines">0</span>
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'event_list' %}?upcoming=7">
+                                <i class="bi bi-calendar2-check me-2"></i> This Week
+                            </a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Analytics Dropdown - E REJA -->
+                    {% if user.role in 'admin,lawyer' %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center position-relative" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-graph-up me-1"></i> 
+                            <span class="d-none d-xl-inline">Analytics</span>
+                            <span class="badge bg-info rounded-pill position-absolute top-0 start-100 translate-middle" style="font-size: 0.6rem;">NEW</span>
+                        </a>
+                        <ul class="dropdown-menu shadow-lg">
+                            <li><h6 class="dropdown-header">
+                                <i class="bi bi-graph-up me-2"></i>Analytics & Reports
+                                <span class="badge bg-info ms-2">NEW</span>
+                            </h6></li>
+                            <li><a class="dropdown-item" href="/analytics/">
+                                <i class="bi bi-speedometer2 me-2"></i> Analytics Dashboard
+                            </a></li>
+                            <li><a class="dropdown-item" href="/analytics/financial/">
+                                <i class="bi bi-currency-dollar me-2"></i> Financial Reports
+                            </a></li>
+                            <li><a class="dropdown-item" href="/analytics/performance/">
+                                <i class="bi bi-person-check me-2"></i> Performance Metrics
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/analytics/outcomes/">
+                                <i class="bi bi-trophy me-2"></i> Case Outcomes
+                            </a></li>
+                            <li><a class="dropdown-item" href="/analytics/kpi/">
+                                <i class="bi bi-bullseye me-2"></i> KPI Dashboard
+                            </a></li>
+                            <li><a class="dropdown-item" href="/analytics/custom/">
+                                <i class="bi bi-sliders me-2"></i> Custom Reports
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                {% endif %}
+            </ul>
+            
+            <!-- Right side - Search, Notifications, User -->
+            <ul class="navbar-nav ms-auto align-items-center">
+                {% if user.is_authenticated %}
+                    <!-- Global Search -->
+                    <li class="nav-item me-3">
+                        <div class="search-container position-relative">
+                            <input type="text" class="form-control form-control-sm search-input" 
+                                   placeholder="Search cases, clients, docs..." 
+                                   id="globalSearch"
+                                   style="width: 200px; padding-left: 35px;">
+                            <i class="bi bi-search position-absolute top-50 translate-middle-y ms-2 text-muted"></i>
+                            <div class="search-results position-absolute w-100 shadow-lg d-none" id="searchResults"></div>
+                        </div>
+                    </li>
+
+                    <!-- Notifications -->
+                    <li class="nav-item dropdown me-2">
+                        <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-bell fs-5"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
+                                  id="notificationBadge" style="font-size: 0.7rem;">
+                                0
+                            </span>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end shadow-lg" style="width: 350px;">
+                            <div class="dropdown-header d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-bell me-2"></i>Notifications</span>
+                                <button class="btn btn-sm btn-outline-primary" onclick="markAllNotificationsRead()">
+                                    Mark all read
+                                </button>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <div id="notificationsList" style="max-height: 300px; overflow-y: auto;">
+                                <div class="dropdown-item-text text-center text-muted py-3">
+                                    <i class="bi bi-bell-slash fs-3"></i>
+                                    <div>No new notifications</div>
+                                </div>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-item text-center">
+                                <a href="/notifications/" class="text-decoration-none">View all notifications</a>
+                            </div>
+                        </div>
+                    </li>
+
+                    <!-- Quick Actions -->
+                    <li class="nav-item dropdown me-2">
+                        <a class="nav-link" href="#" role="button" data-bs-toggle="dropdown" title="Quick Actions">
+                            <i class="bi bi-plus-circle fs-5"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg">
+                            <li><h6 class="dropdown-header">
+                                <i class="bi bi-lightning me-2"></i>Quick Actions
+                            </h6></li>
+                            {% if user.role in 'admin,lawyer' %}
+                            <li><a class="dropdown-item" href="{% url 'case_create' %}">
+                                <i class="bi bi-plus-circle me-2 text-primary"></i> New Case
+                            </a></li>
+                            <li><a class="dropdown-item" href="/billing/invoices/generate/">
+                                <i class="bi bi-receipt me-2 text-success"></i> Generate Invoice
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'client_create' %}">
+                                <i class="bi bi-person-plus me-2 text-info"></i> New Client
+                            </a></li>
+                            {% endif %}
+                            {% if user.role in 'admin,lawyer,paralegal' %}
+                            <li><a class="dropdown-item" href="{% url 'document_upload' %}">
+                                <i class="bi bi-cloud-upload me-2 text-warning"></i> Upload Document
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'event_create' %}">
+                                <i class="bi bi-calendar-plus me-2 text-danger"></i> New Event
+                            </a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/document-editor/">
+                                <i class="bi bi-robot me-2 text-purple"></i> AI Document Generator
+                            </a></li>
+                        </ul>
+                    </li>
+                {% endif %}
+
+                <!-- User Dropdown -->
+                <li class="nav-item dropdown">
+                    {% if user.is_authenticated %}
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                            {% if user.profile.profile_picture %}
+                                <img src="{{ user.profile.profile_picture.url }}" alt="Profile" 
+                                     class="rounded-circle me-2" style="width: 32px; height: 32px;">
+                            {% else %}
+                                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                     style="width: 32px; height: 32px;">
+                                    <i class="bi bi-person text-dark"></i>
+                                </div>
+                            {% endif %}
+                            <span class="d-none d-lg-inline">{{ user.get_full_name|default:user.username }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg">
+                            <li><div class="dropdown-header">
+                                <div class="fw-bold">{{ user.get_full_name|default:user.username }}</div>
+                                <small class="text-muted">{{ user.email }}</small>
+                                <div class="mt-1">
+                                    <span class="badge bg-{{ user.role|default:'secondary' }}-subtle text-{{ user.role|default:'secondary' }}">
+                                        {{ user.get_role_display }}
+                                    </span>
+                                </div>
+                            </div></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'profile' %}">
+                                <i class="bi bi-person me-2"></i> My Profile
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'password_change' %}">
+                                <i class="bi bi-shield-lock me-2"></i> Change Password
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="toggleDarkMode()">
+                                <i class="bi bi-moon-stars me-2"></i> Dark Mode
+                                <div class="form-check form-switch float-end">
+                                    <input class="form-check-input" type="checkbox" id="navbarDarkMode">
+                                </div>
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% if user.role == 'admin' %}
+                            <li><a class="dropdown-item" href="/admin/">
+                                <i class="bi bi-gear me-2"></i> Admin Panel
+                            </a></li>
+                            <li><a class="dropdown-item" href="/admin-enhanced/">
+                                <i class="bi bi-sliders me-2"></i> Enhanced Admin
+                                <span class="badge bg-success ms-2">NEW</span>
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            <li><a class="dropdown-item" href="#" onclick="showKeyboardShortcuts()">
+                                <i class="bi bi-keyboard me-2"></i> Keyboard Shortcuts
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showHelp()">
+                                <i class="bi bi-question-circle me-2"></i> Help & Support
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'logout' %}">
+                                <i class="bi bi-box-arrow-right me-2"></i> Logout
+                            </a></li>
+                        </ul>
+                    {% else %}
+                        <a class="nav-link d-flex align-items-center" href="{% url 'login' %}">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> 
+                            <span class="d-none d-lg-inline">Login</span>
+                        </a>
+                    {% endif %}
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Enhanced Navbar JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Global search functionality
+    initializeGlobalSearch();
+    
+    // Load notifications
+    loadNotifications();
+    
+    // Update notification counts periodically
+    setInterval(loadNotifications, 30000);
+    
+    // Initialize dark mode toggle
+    initializeDarkModeToggle();
+    
+    // Load navbar stats
+    updateNavbarStats();
+    setInterval(updateNavbarStats, 60000);
+});
+
+function initializeGlobalSearch() {
+    const searchInput = document.getElementById('globalSearch');
+    const searchResults = document.getElementById('searchResults');
+    let searchTimeout;
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            
+            if (query.length < 2) {
+                searchResults.classList.add('d-none');
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => performSearch(query), 300);
+        });
+
+        // Hide results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.classList.add('d-none');
+            }
+        });
+    }
+}
+
+function performSearch(query) {
+    const searchResults = document.getElementById('searchResults');
+    
+    fetch(`/api/search/?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            let html = '';
+            
+            if (data.results && data.results.length > 0) {
+                // Group results by type
+                const groupedResults = data.results.reduce((acc, result) => {
+                    if (!acc[result.type]) acc[result.type] = [];
+                    acc[result.type].push(result);
+                    return acc;
+                }, {});
+                
+                Object.keys(groupedResults).forEach(type => {
+                    html += `<div class="dropdown-header">${type.charAt(0).toUpperCase() + type.slice(1)}s</div>`;
+                    groupedResults[type].slice(0, 3).forEach(result => {
+                        html += `
+                            <a class="dropdown-item" href="${result.url}">
+                                <i class="bi bi-${getIconForType(type)} me-2"></i>
+                                <div>
+                                    <div class="fw-semibold">${result.title}</div>
+                                    <small class="text-muted">${result.description}</small>
+                                </div>
+                            </a>
+                        `;
+                    });
+                });
+                
+                html += `<div class="dropdown-divider"></div>
+                         <a class="dropdown-item text-center" href="/search/?q=${encodeURIComponent(query)}">
+                             <i class="bi bi-search me-2"></i>View all results
+                         </a>`;
+            } else {
+                html = '<div class="dropdown-item-text text-center text-muted">No results found</div>';
+            }
+            
+            searchResults.innerHTML = html;
+            searchResults.classList.remove('d-none');
+        })
+        .catch(error => {
+            console.error('Search error:', error);
+            searchResults.innerHTML = '<div class="dropdown-item-text text-danger">Search error</div>';
+            searchResults.classList.remove('d-none');
+        });
+}
+
+function getIconForType(type) {
+    const icons = {
+        'case': 'folder',
+        'client': 'person',
+        'document': 'file-earmark-text',
+        'event': 'calendar'
+    };
+    return icons[type] || 'search';
+}
+
+function loadNotifications() {
+    fetch('/api/notifications/')
+        .then(response => response.json())
+        .then(data => {
+            updateNotificationBadge(data.unread_count);
+            updateNotificationsList(data.results);
+        })
+        .catch(error => console.error('Error loading notifications:', error));
+}
+
+function updateNotificationBadge(count) {
+    const badge = document.getElementById('notificationBadge');
+    if (badge) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = count > 0 ? 'block' : 'none';
+    }
+}
+
+function updateNotificationsList(notifications) {
+    const list = document.getElementById('notificationsList');
+    if (!list) return;
+    
+    let html = '';
+    
+    if (notifications && notifications.length > 0) {
+        notifications.slice(0, 5).forEach(notification => {
+            html += `
+                <div class="dropdown-item ${notification.is_read ? '' : 'bg-light'}" onclick="markNotificationRead(${notification.id})">
+                    <div class="d-flex">
+                        <i class="bi bi-${getNotificationIcon(notification.type)} me-2 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">${notification.title}</div>
+                            <small class="text-muted">${notification.message}</small>
+                            <div><small class="text-muted">${formatTime(notification.created_at)}</small></div>
+                        </div>
+                        ${!notification.is_read ? '<div class="bg-primary rounded-circle" style="width: 8px; height: 8px;"></div>' : ''}
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        html = `
+            <div class="dropdown-item-text text-center text-muted py-3">
+                <i class="bi bi-bell-slash fs-3"></i>
+                <div>No new notifications</div>
+            </div>
+        `;
+    }
+    
+    list.innerHTML = html;
+}
+
+function getNotificationIcon(type) {
+    const icons = {
+        'case_update': 'folder',
+        'document_shared': 'file-earmark',
+        'invoice_issued': 'receipt',
+        'payment_received': 'cash-coin',
+        'appointment_scheduled': 'calendar',
+        'deadline_reminder': 'clock',
+        'message_received': 'chat-square-text',
+        'system': 'gear'
+    };
+    return icons[type] || 'bell';
+}
+
+function formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 3600000) { // Less than 1 hour
+        return Math.floor(diff / 60000) + 'm ago';
+    } else if (diff < 86400000) { // Less than 1 day
+        return Math.floor(diff / 3600000) + 'h ago';
+    } else {
+        return Math.floor(diff / 86400000) + 'd ago';
+    }
+}
+
+function markNotificationRead(notificationId) {
+    fetch(`/api/notifications/${notificationId}/mark-read/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json'
+        }
+    }).then(() => {
+        loadNotifications();
+    });
+}
+
+function markAllNotificationsRead() {
+    fetch('/api/notifications/mark-all-read/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json'
+        }
+    }).then(() => {
+        loadNotifications();
+    });
+}
+
+function updateNavbarStats() {
+    fetch('/api/dashboard/navbar-stats/')
+        .then(response => response.json())
+        .then(data => {
+            // Update various navbar counters
+            updateNavbarElement('navbar-pending-invoices', data.pending_invoices);
+            updateNavbarElement('navbar-unpaid-invoices', data.unpaid_invoices);
+            updateNavbarElement('navbar-unread-messages', data.unread_messages);
+            updateNavbarElement('navbar-draft-docs', data.draft_documents);
+            updateNavbarElement('navbar-deadlines', data.upcoming_deadlines);
+        })
+        .catch(error => console.error('Error updating navbar stats:', error));
+}
+
+function updateNavbarElement(id, value) {
+    const element = document.getElementById(id);
+    if (element && value !== undefined) {
+        element.textContent = value;
+        element.style.display = value > 0 ? 'inline' : 'none';
+    }
+}
+
+function initializeDarkModeToggle() {
+    const toggle = document.getElementById('navbarDarkMode');
+    if (toggle) {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        toggle.checked = savedTheme === 'dark';
+        
+        toggle.addEventListener('change', function() {
+            toggleDarkMode();
+        });
+    }
+}
+
+function toggleDarkMode() {
+    const isDark = document.body.classList.toggle('dark-theme');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    
+    // Update toggle state
+    const toggle = document.getElementById('navbarDarkMode');
+    if (toggle) toggle.checked = isDark;
+}
+
+function showKeyboardShortcuts() {
+    const shortcuts = `
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <tr><td><kbd>Ctrl</kbd> + <kbd>K</kbd></td><td>Global Search</td></tr>
+                <tr><td><kbd>Ctrl</kbd> + <kbd>N</kbd></td><td>New Case</td></tr>
+                <tr><td><kbd>Ctrl</kbd> + <kbd>D</kbd></td><td>Dashboard</td></tr>
+                <tr><td><kbd>Ctrl</kbd> + <kbd>B</kbd></td><td>Billing</td></tr>
+                <tr><td><kbd>Alt</kbd> + <kbd>N</kbd></td><td>Notifications</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Close Modals</td></tr>
+            </table>
+        </div>
+    `;
+    showModal('Keyboard Shortcuts', shortcuts);
+}
+
+function showHelp() {
+    window.open('/help/', '_blank');
+}
+
+function showModal(title, content) {
+    // Create and show a modal with the given title and content
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">${title}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">${content}</div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    modal.addEventListener('hidden.bs.modal', () => modal.remove());
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+// Additional navbar functions
+function showInvoices() {
+    alert('Invoices functionality will be available soon. This will integrate with the new billing system.');
+}
+
+function showExpenses() {
+    alert('Expenses tracking will be available soon. This will integrate with the new billing system.');
+}
+
+function showPayments() {
+    alert('Payment tracking will be available soon. This will integrate with the new billing system.');
+}
+
+function showClientInvoices() {
+    alert('Client invoice portal will be available soon. This will show your invoices and payment status.');
+}
+
+function showClientMessages() {
+    alert('Client messaging system will be available soon. This will allow secure communication with your legal team.');
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('globalSearch')?.focus();
+    } else if (e.ctrlKey && e.key === 'n') {
+        e.preventDefault();
+        window.location.href = '/cases/create/';
+    } else if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        window.location.href = '/dashboard/';
+    } else if (e.ctrlKey && e.key === 'b') {
+        e.preventDefault();
+        window.location.href = '/billing/';
+    } else if (e.altKey && e.key === 'n') {
+        e.preventDefault();
+        document.querySelector('[data-bs-toggle="dropdown"][href="#"]:has(.bi-bell)')?.click();
+    }
+});
+</script>
+
+<!-- Enhanced Navbar Styles -->
+<style>
+.navbar-brand {
+    font-weight: 600;
+}
+
+.dropdown-menu {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 25px rgba(0,0,0,0.15);
+}
+
+.dropdown-item {
+    padding: 8px 16px;
+    transition: background-color 0.2s ease;
+}
+
+.dropdown-item:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.dropdown-header {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+}
+
+.search-input {
+    background-color: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    background-color: white;
+    color: #495057;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.search-input::placeholder {
+    color: rgba(255,255,255,0.8);
+}
+
+.search-input:focus::placeholder {
+    color: #6c757d;
+}
+
+.search-results {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1050;
+}
+
+.badge {
+    font-weight: 500;
+}
+
+.nav-link.active {
+    background-color: rgba(255,255,255,0.1) !important;
+    border-radius: 6px;
+}
+
+.position-relative .badge {
+    transform: scale(0.8);
+}
+
+@media (max-width: 991.98px) {
+    .search-input {
+        width: 150px !important;
+    }
+}
+
+/* Dark theme adjustments */
+.dark-theme .search-results {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: white;
+}
+
+.dark-theme .dropdown-menu {
+    background-color: #2d3748;
+    border: 1px solid #4a5568;
+}
+
+.dark-theme .dropdown-item {
+    color: #e2e8f0;
+}
+
+.dark-theme .dropdown-item:hover {
+    background-color: rgba(66, 153, 225, 0.2);
+    color: white;
+}
+
+.dark-theme .dropdown-header {
+    color: #a0aec0;
+}
+</style>

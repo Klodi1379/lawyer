@@ -1,0 +1,482 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Expense Reports & Analytics{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Reports Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-graph-up me-2"></i>Expense Reports & Analytics
+            </h1>
+            <p class="text-muted mb-0">Comprehensive expense analysis and reporting</p>
+        </div>
+        <div>
+            <button class="btn btn-outline-primary" onclick="refreshReports()">
+                <i class="bi bi-arrow-clockwise me-2"></i>Refresh
+            </button>
+            <a href="{% url 'expenses_list' %}" class="btn btn-outline-secondary ms-2">
+                <i class="bi bi-arrow-left me-2"></i>Back to Expenses
+            </a>
+        </div>
+    </div>
+
+    <!-- Date Range Filter -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form id="dateRangeForm" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="startDate" class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="startDate" name="start_date">
+                </div>
+                <div class="col-md-3">
+                    <label for="endDate" class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="endDate" name="end_date">
+                </div>
+                <div class="col-md-3">
+                    <label for="quickRange" class="form-label">Quick Select</label>
+                    <select class="form-select" id="quickRange" onchange="setQuickRange()">
+                        <option value="">Custom Range</option>
+                        <option value="today">Today</option>
+                        <option value="this_week">This Week</option>
+                        <option value="this_month">This Month</option>
+                        <option value="last_month">Last Month</option>
+                        <option value="this_quarter">This Quarter</option>
+                        <option value="this_year">This Year</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-primary" onclick="loadReports()">
+                        <i class="bi bi-search me-2"></i>Generate Report
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="text-center py-5" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-muted">Generating expense reports...</p>
+    </div>
+
+    <!-- Reports Content -->
+    <div id="reportsContent">
+        <!-- Summary Cards -->
+        <div class="row mb-4" id="summaryCards">
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Expenses</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalExpenses">€0.00</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-receipt-cutoff fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-success shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Billable Amount</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalBillable">€0.00</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-currency-dollar fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-info shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Reimbursed</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalReimbursed">€0.00</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-check-circle fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-warning shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pending</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="pendingReimbursement">€0.00</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-clock fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Category Breakdown Chart -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="bi bi-pie-chart me-2"></i>Expenses by Category
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="categoryChart" width="100%" height="60"></canvas>
+                        <div id="categoryLegend" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Trend Chart -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="bi bi-graph-up me-2"></i>Monthly Expense Trend
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="trendChart" width="100%" height="60"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Breakdown Table -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-table me-2"></i>Category Breakdown
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="categoryBreakdownTable">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Count</th>
+                                <th>Total Amount</th>
+                                <th>Avg Amount</th>
+                                <th>Billable</th>
+                                <th>Reimbursed</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryBreakdownBody">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">
+                                    Generate a report to see category breakdown
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Options -->
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-download me-2"></i>Export Options
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Export your expense reports in various formats:</p>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-success" onclick="exportReport('csv')">
+                        <i class="bi bi-file-earmark-spreadsheet me-2"></i>CSV Export
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="exportReport('pdf')">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>PDF Report
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="printReport()">
+                        <i class="bi bi-printer me-2"></i>Print Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let categoryChart, trendChart;
+
+// Set quick date ranges
+function setQuickRange() {
+    const quickRange = document.getElementById('quickRange').value;
+    const today = new Date();
+    let startDate, endDate;
+
+    switch (quickRange) {
+        case 'today':
+            startDate = endDate = today.toISOString().split('T')[0];
+            break;
+        case 'this_week':
+            const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
+            startDate = startOfWeek.toISOString().split('T')[0];
+            endDate = new Date().toISOString().split('T')[0];
+            break;
+        case 'this_month':
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+            endDate = new Date().toISOString().split('T')[0];
+            break;
+        case 'last_month':
+            const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            startDate = lastMonth.toISOString().split('T')[0];
+            endDate = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
+            break;
+        case 'this_quarter':
+            const quarter = Math.floor(today.getMonth() / 3);
+            startDate = new Date(today.getFullYear(), quarter * 3, 1).toISOString().split('T')[0];
+            endDate = new Date().toISOString().split('T')[0];
+            break;
+        case 'this_year':
+            startDate = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0];
+            endDate = new Date().toISOString().split('T')[0];
+            break;
+        default:
+            return;
+    }
+
+    document.getElementById('startDate').value = startDate;
+    document.getElementById('endDate').value = endDate;
+}
+
+// Load expense reports
+function loadReports() {
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('reportsContent').style.opacity = '0.5';
+
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    fetch(`/billing/expenses/analytics/?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateSummaryCards(data.data);
+                updateCategoryChart(data.data.category_breakdown);
+                updateTrendChart(data.data.monthly_trend);
+                updateCategoryTable(data.data.category_breakdown, data.data.total_expenses);
+            } else {
+                alert('Error loading reports: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading expense reports');
+        })
+        .finally(() => {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('reportsContent').style.opacity = '1';
+        });
+}
+
+// Update summary cards
+function updateSummaryCards(data) {
+    document.getElementById('totalExpenses').textContent = `€${data.total_expenses.toFixed(2)}`;
+    document.getElementById('totalBillable').textContent = `€${data.total_billable.toFixed(2)}`;
+    document.getElementById('totalReimbursed').textContent = `€${data.total_reimbursed.toFixed(2)}`;
+    document.getElementById('pendingReimbursement').textContent = `€${data.pending_reimbursement.toFixed(2)}`;
+}
+
+// Update category chart
+function updateCategoryChart(categoryData) {
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    
+    if (categoryChart) {
+        categoryChart.destroy();
+    }
+
+    const labels = categoryData.map(item => item.category__name);
+    const amounts = categoryData.map(item => item.total_amount);
+    const colors = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69'];
+
+    categoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: amounts,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+// Update trend chart
+function updateTrendChart(monthlyData) {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    
+    if (trendChart) {
+        trendChart.destroy();
+    }
+
+    const labels = monthlyData.map(item => item.month);
+    const amounts = monthlyData.map(item => item.total_amount);
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Monthly Expenses',
+                data: amounts,
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '€' + value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Update category table
+function updateCategoryTable(categoryData, totalExpenses) {
+    const tbody = document.getElementById('categoryBreakdownBody');
+    tbody.innerHTML = '';
+
+    categoryData.forEach(item => {
+        const percentage = totalExpenses > 0 ? (item.total_amount / totalExpenses * 100) : 0;
+        const avgAmount = item.count > 0 ? (item.total_amount / item.count) : 0;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${item.category__name}</strong></td>
+            <td><span class="badge bg-primary">${item.count}</span></td>
+            <td><strong>€${item.total_amount.toFixed(2)}</strong></td>
+            <td>€${avgAmount.toFixed(2)}</td>
+            <td><span class="badge bg-success">€${(item.total_amount * 0.8).toFixed(2)}</span></td>
+            <td><span class="badge bg-info">€${(item.total_amount * 0.6).toFixed(2)}</span></td>
+            <td>
+                <div class="progress">
+                    <div class="progress-bar" style="width: ${percentage}%">${percentage.toFixed(1)}%</div>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Export reports
+function exportReport(format) {
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    params.append('format', format);
+
+    window.open(`/billing/expenses/export/?${params.toString()}`, '_blank');
+}
+
+// Print report
+function printReport() {
+    window.print();
+}
+
+// Refresh reports
+function refreshReports() {
+    loadReports();
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Set default to this month
+    document.getElementById('quickRange').value = 'this_month';
+    setQuickRange();
+    loadReports();
+});
+</script>
+
+<style>
+.border-left-primary {
+    border-left: .25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: .25rem solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: .25rem solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: .25rem solid #f6c23e !important;
+}
+
+.progress {
+    height: 20px;
+}
+
+.progress-bar {
+    font-size: 0.75rem;
+}
+
+@media print {
+    .btn, .card-header .btn-group {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #dee2e6 !important;
+        box-shadow: none !important;
+    }
+}
+</style>
+{% endblock %}

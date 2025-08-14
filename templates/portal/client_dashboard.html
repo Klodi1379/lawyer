@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Client Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Client Portal Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-house-door me-2"></i>My Portal
+            </h1>
+            <p class="text-muted mb-0">Welcome back, {{ user.get_full_name }}</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#messageModal">
+                <i class="bi bi-chat-square-text me-2"></i>Contact My Lawyer
+            </button>
+        </div>
+    </div>
+
+    <!-- Client Stats -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Active Cases</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">3</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-folder-open fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Pending Invoices</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">2</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-receipt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Documents</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">12</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-file-earmark-text fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Unread Messages</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">1</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-envelope fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Access -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-lightning-charge me-2"></i>Quick Access
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="{% url 'case_list' %}" class="btn btn-outline-primary w-100 mb-2">
+                                <i class="bi bi-folder-open"></i><br>
+                                <small>My Cases</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'document_list' %}" class="btn btn-outline-success w-100 mb-2">
+                                <i class="bi bi-file-earmark-text"></i><br>
+                                <small>Documents</small>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-warning w-100 mb-2" onclick="showClientInvoices()">
+                                <i class="bi bi-receipt"></i><br>
+                                <small>Invoices</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-info w-100 mb-2" onclick="showClientMessages()">
+                                <i class="bi bi-chat-square-text"></i><br>
+                                <small>Messages</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Activity</h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">Document Uploaded</h6>
+                                <p class="timeline-description">Contract_Amendment.pdf was added to Case #2024-003</p>
+                                <small class="text-muted">2 hours ago</small>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">Payment Received</h6>
+                                <p class="timeline-description">Invoice #INV-2024-001 payment confirmed</p>
+                                <small class="text-muted">1 day ago</small>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-info"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">Case Update</h6>
+                                <p class="timeline-description">Status changed to "In Court" for Case #2024-002</p>
+                                <small class="text-muted">3 days ago</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Upcoming Events</h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Court Hearing</h6>
+                                <small>Aug 20, 2024</small>
+                            </div>
+                            <p class="mb-1">Case #2024-002 - Civil Court</p>
+                            <small class="text-muted">10:00 AM</small>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Meeting</h6>
+                                <small>Aug 22, 2024</small>
+                            </div>
+                            <p class="mb-1">Document Review Session</p>
+                            <small class="text-muted">2:00 PM</small>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Deadline</h6>
+                                <small>Aug 25, 2024</small>
+                            </div>
+                            <p class="mb-1">Submit Additional Documents</p>
+                            <small class="text-danger">Urgent</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Lawyer Info -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">My Legal Team</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-person-circle fa-3x text-gray-300"></i>
+                        </div>
+                        <h6>Adv. Gjergji Kola</h6>
+                        <p class="text-muted">Senior Partner</p>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#messageModal">
+                                <i class="bi bi-envelope me-1"></i>Send Message
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" onclick="scheduleAppointment()">
+                                <i class="bi bi-calendar me-1"></i>Schedule Meeting
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Message Modal -->
+<div class="modal fade" id="messageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Send Message to Legal Team</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="messageSubject" class="form-label">Subject</label>
+                        <input type="text" class="form-control" id="messageSubject" placeholder="Enter subject">
+                    </div>
+                    <div class="mb-3">
+                        <label for="messageContent" class="form-label">Message</label>
+                        <textarea class="form-control" id="messageContent" rows="5" placeholder="Enter your message"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="messageUrgency" class="form-label">Priority</label>
+                        <select class="form-select" id="messageUrgency">
+                            <option value="normal">Normal</option>
+                            <option value="urgent">Urgent</option>
+                            <option value="low">Low Priority</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="sendMessage()">Send Message</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showClientInvoices() {
+    alert('Client Invoices: This will show your invoices and payment status in a dedicated page.');
+}
+
+function showClientMessages() {
+    alert('Client Messages: This will open your secure messaging system with your legal team.');
+}
+
+function scheduleAppointment() {
+    alert('Schedule Appointment: This will open appointment scheduling system.');
+}
+
+function sendMessage() {
+    const subject = document.getElementById('messageSubject').value;
+    const content = document.getElementById('messageContent').value;
+    const urgency = document.getElementById('messageUrgency').value;
+    
+    if (subject && content) {
+        alert(`Message sent successfully!\nSubject: ${subject}\nPriority: ${urgency}`);
+        bootstrap.Modal.getInstance(document.getElementById('messageModal')).hide();
+        // Clear form
+        document.getElementById('messageSubject').value = '';
+        document.getElementById('messageContent').value = '';
+    } else {
+        alert('Please fill in both subject and message.');
+    }
+}
+</script>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e3e6f0;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -8px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+
+.timeline-content {
+    margin-left: 25px;
+}
+
+.timeline-title {
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.timeline-description {
+    margin-bottom: 5px;
+    color: #6c757d;
+}
+
+.border-left-danger {
+    border-left: .25rem solid #e74a3b !important;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,566 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Legal Case Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .widget-container {
+        min-height: 300px;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 0.75rem;
+        transition: transform 0.2s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+    
+    .quick-action-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.75rem;
+        transition: all 0.2s ease;
+    }
+    
+    .quick-action-card:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .widget-header {
+        background: linear-gradient(90deg, #f8f9fa, #e9ecef);
+        border-bottom: 2px solid #dee2e6;
+        border-radius: 0.375rem 0.375rem 0 0;
+    }
+    
+    .recent-activity-item {
+        padding: 12px;
+        border-left: 4px solid transparent;
+        transition: all 0.2s ease;
+    }
+    
+    .recent-activity-item:hover {
+        background: #f8f9fa;
+        border-left-color: #007bff;
+    }
+    
+    .notification-dot {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        width: 12px;
+        height: 12px;
+        background: #dc3545;
+        border-radius: 50%;
+        border: 2px solid white;
+    }
+    
+    @media (max-width: 768px) {
+        .stat-card {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Welcome Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        Welcome back, {{ user.get_full_name|default:user.username }}!
+                    </h1>
+                    <p class="text-muted mb-0">
+                        {{ user.get_role_display }} • 
+                        <span id="current-time"></span>
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    {% if user.role in 'admin,lawyer' %}
+                    <a href="{% url 'case_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-1"></i>New Case
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'document_editor' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-magic me-1"></i>AI Editor
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        {% if user.role in 'admin,lawyer' %}
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-folder fs-1 mb-2"></i>
+                    <div class="stat-number" id="total-cases">{{ total_cases|default:0 }}</div>
+                    <div class="stat-label">Total Cases</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card stat-card h-100" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                <div class="card-body text-center">
+                    <i class="bi bi-folder-check fs-1 mb-2"></i>
+                    <div class="stat-number" id="open-cases">{{ open_cases|default:0 }}</div>
+                    <div class="stat-label">Open Cases</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card stat-card h-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body text-center">
+                    <i class="bi bi-people fs-1 mb-2"></i>
+                    <div class="stat-number" id="total-clients">{{ total_clients|default:0 }}</div>
+                    <div class="stat-label">Clients</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card stat-card h-100" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-body text-center">
+                    <i class="bi bi-file-earmark-text fs-1 mb-2"></i>
+                    <div class="stat-number" id="total-documents">{{ total_documents|default:0 }}</div>
+                    <div class="stat-label">Documents</div>
+                </div>
+            </div>
+        </div>
+        {% elif user.role == 'paralegal' %}
+        <div class="col-md-4 col-sm-6 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-workspace fs-1 mb-2"></i>
+                    <div class="stat-number" id="my-cases">{{ my_cases|default:0 }}</div>
+                    <div class="stat-label">My Cases</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 col-sm-6 mb-3">
+            <div class="card stat-card h-100" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                <div class="card-body text-center">
+                    <i class="bi bi-clock fs-1 mb-2"></i>
+                    <div class="stat-number" id="pending-tasks">{{ pending_tasks|default:0 }}</div>
+                    <div class="stat-label">Pending Tasks</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 col-sm-6 mb-3">
+            <div class="card stat-card h-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body text-center">
+                    <i class="bi bi-file-earmark-arrow-up fs-1 mb-2"></i>
+                    <div class="stat-number" id="docs-uploaded">{{ docs_uploaded|default:0 }}</div>
+                    <div class="stat-label">Documents</div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-md-6 col-sm-6 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-circle fs-1 mb-2"></i>
+                    <div class="stat-number" id="my-cases">{{ my_cases|default:0 }}</div>
+                    <div class="stat-label">My Cases</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-sm-6 mb-3">
+            <div class="card stat-card h-100" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                <div class="card-body text-center">
+                    <i class="bi bi-calendar-event fs-1 mb-2"></i>
+                    <div class="stat-number" id="upcoming-events">{{ upcoming_events|default:0 }}</div>
+                    <div class="stat-label">Upcoming Events</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Main Content Row -->
+    <div class="row">
+        <!-- Left Column -->
+        <div class="col-lg-8">
+            <!-- Recent Cases Widget -->
+            <div class="card mb-4">
+                <div class="card-header widget-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-folder me-2"></i>Recent Cases
+                        </h5>
+                        <a href="{% url 'case_list' %}" class="btn btn-sm btn-outline-primary">
+                            View All
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_cases %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Case ID</th>
+                                    <th>Title</th>
+                                    <th>Client</th>
+                                    <th>Status</th>
+                                    <th>Type</th>
+                                    <th>Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for case in recent_cases %}
+                                <tr>
+                                    <td>
+                                        <code class="text-primary">{{ case.uid|slice:":8" }}...</code>
+                                    </td>
+                                    <td>
+                                        <strong>{{ case.title|truncatechars:25 }}</strong>
+                                    </td>
+                                    <td>{{ case.client.full_name|truncatechars:20 }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if case.status == 'open' %}success{% elif case.status == 'closed' %}secondary{% elif case.status == 'in_court' %}warning{% else %}primary{% endif %}">
+                                            {{ case.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">
+                                            {{ case.get_case_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ case.updated_at|timesince }} ago
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'case_detail' case.pk %}" 
+                                               class="btn btn-outline-primary" 
+                                               data-bs-toggle="tooltip" 
+                                               title="View Case">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if user.role in 'admin,lawyer' %}
+                                            <a href="{% url 'case_update' case.pk %}" 
+                                               class="btn btn-outline-secondary"
+                                               data-bs-toggle="tooltip" 
+                                               title="Edit Case">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-folder-x display-1"></i>
+                        <h4 class="mt-3">No Cases Yet</h4>
+                        <p>Start by creating your first case to get organized.</p>
+                        {% if user.role in 'admin,lawyer' %}
+                        <a href="{% url 'case_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-1"></i>Create First Case
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Activity Widget -->
+            <div class="card mb-4">
+                <div class="card-header widget-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-activity me-2"></i>Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="recent-activity">
+                        <div class="recent-activity-item">
+                            <div class="d-flex align-items-start">
+                                <div class="activity-icon me-3">
+                                    <i class="bi bi-plus-circle text-success"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="activity-title">New case created</div>
+                                    <div class="activity-meta text-muted small">
+                                        2 hours ago • by {{ user.username }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="recent-activity-item">
+                            <div class="d-flex align-items-start">
+                                <div class="activity-icon me-3">
+                                    <i class="bi bi-file-earmark-arrow-up text-primary"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="activity-title">Document uploaded</div>
+                                    <div class="activity-meta text-muted small">
+                                        5 hours ago • Contract.pdf
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="recent-activity-item">
+                            <div class="d-flex align-items-start">
+                                <div class="activity-icon me-3">
+                                    <i class="bi bi-calendar-event text-warning"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="activity-title">Court hearing scheduled</div>
+                                    <div class="activity-meta text-muted small">
+                                        1 day ago • Tomorrow at 10:00 AM
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-4">
+            <!-- Quick Actions Widget -->
+            <div class="card mb-4">
+                <div class="card-header widget-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning me-2"></i>Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-3">
+                        {% if user.role in 'admin,lawyer' %}
+                        <a href="{% url 'case_create' %}" class="quick-action-card text-decoration-none">
+                            <div class="p-3 text-center">
+                                <i class="bi bi-plus-circle fs-2 text-primary"></i>
+                                <div class="mt-2 fw-semibold">Create New Case</div>
+                                <small class="text-muted">Start a new legal case</small>
+                            </div>
+                        </a>
+                        
+                        <a href="{% url 'client_create' %}" class="quick-action-card text-decoration-none">
+                            <div class="p-3 text-center">
+                                <i class="bi bi-person-plus fs-2 text-success"></i>
+                                <div class="mt-2 fw-semibold">Add New Client</div>
+                                <small class="text-muted">Register a new client</small>
+                            </div>
+                        </a>
+                        {% endif %}
+                        
+                        <a href="{% url 'document_upload' %}" class="quick-action-card text-decoration-none">
+                            <div class="p-3 text-center">
+                                <i class="bi bi-cloud-upload fs-2 text-info"></i>
+                                <div class="mt-2 fw-semibold">Upload Document</div>
+                                <small class="text-muted">Add case documents</small>
+                            </div>
+                        </a>
+                        
+                        <a href="{% url 'document_editor' %}" class="quick-action-card text-decoration-none">
+                            <div class="p-3 text-center">
+                                <i class="bi bi-magic fs-2 text-warning"></i>
+                                <div class="mt-2 fw-semibold">AI Document Editor</div>
+                                <small class="text-muted">Create with AI assistance</small>
+                            </div>
+                        </a>
+                        
+                        <a href="{% url 'event_create' %}" class="quick-action-card text-decoration-none">
+                            <div class="p-3 text-center">
+                                <i class="bi bi-calendar-plus fs-2 text-secondary"></i>
+                                <div class="mt-2 fw-semibold">Schedule Event</div>
+                                <small class="text-muted">Add calendar event</small>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upcoming Events Widget -->
+            <div class="card mb-4">
+                <div class="card-header widget-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-calendar-event me-2"></i>Upcoming Events
+                        </h5>
+                        <a href="{% url 'event_calendar' %}" class="btn btn-sm btn-outline-primary">
+                            View Calendar
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="upcoming-events-list">
+                        {% if upcoming_events_list %}
+                            {% for event in upcoming_events_list %}
+                            <div class="d-flex align-items-center mb-3 p-2 rounded bg-light">
+                                <div class="me-3">
+                                    <div class="bg-primary text-white rounded text-center p-2" style="min-width: 60px;">
+                                        <div class="fw-bold">{{ event.starts_at|date:"d" }}</div>
+                                        <small>{{ event.starts_at|date:"M" }}</small>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold">{{ event.title|truncatechars:30 }}</div>
+                                    <small class="text-muted">
+                                        {{ event.starts_at|date:"H:i" }} • {{ event.case.title|truncatechars:20 }}
+                                    </small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-calendar-x fs-1"></i>
+                            <p class="mt-2">No upcoming events</p>
+                            <a href="{% url 'event_create' %}" class="btn btn-sm btn-outline-primary">
+                                Schedule Event
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status Widget (Admin/Lawyer only) -->
+            {% if user.role in 'admin,lawyer' %}
+            <div class="card">
+                <div class="card-header widget-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear me-2"></i>System Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Database</span>
+                        <span class="badge bg-success">Online</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>AI Service</span>
+                        <span class="badge bg-warning">Limited</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Storage</span>
+                        <span class="badge bg-success">Available</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Security</span>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="/admin/" class="btn btn-sm btn-outline-secondary" target="_blank">
+                            <i class="bi bi-tools me-1"></i>Admin Panel
+                        </a>
+                        <a href="/api/" class="btn btn-sm btn-outline-info" target="_blank">
+                            <i class="bi bi-code-slash me-1"></i>API Browser
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Update current time
+    function updateTime() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+        const dateString = now.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        document.getElementById('current-time').textContent = `${timeString} • ${dateString}`;
+    }
+    
+    updateTime();
+    setInterval(updateTime, 1000);
+    
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Auto-refresh statistics every 30 seconds
+    function refreshStats() {
+        fetch('/dashboard/api/quick-stats/')
+            .then(response => response.json())
+            .then(data => {
+                // Update statistics
+                const elements = {
+                    'total-cases': data.total_cases,
+                    'open-cases': data.open_cases,
+                    'total-clients': data.total_clients,
+                    'total-documents': data.total_documents,
+                    'my-cases': data.my_cases,
+                    'upcoming-events': data.upcoming_events,
+                    'pending-tasks': data.pending_tasks,
+                    'docs-uploaded': data.docs_uploaded
+                };
+                
+                Object.entries(elements).forEach(([id, value]) => {
+                    const element = document.getElementById(id);
+                    if (element && value !== undefined) {
+                        element.textContent = value;
+                    }
+                });
+            })
+            .catch(error => console.error('Error refreshing stats:', error));
+    }
+    
+    // Refresh stats every 30 seconds
+    setInterval(refreshStats, 30000);
+    
+    // Add fade-in animation to cards
+    const cards = document.querySelectorAll('.card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+});
+</script>
+{% endblock %}

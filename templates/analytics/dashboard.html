@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Analytics Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-graph-up me-2"></i>Analytics Dashboard
+            </h1>
+            <p class="text-muted mb-0">Performance metrics and business insights</p>
+        </div>
+        <div>
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-download me-2"></i>Export Reports
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="exportFinancialReport()">Financial Report</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportCaseReport()">Case Analytics</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportTimeReport()">Time Tracking</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Active Cases</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">24</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-folder-open fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Success Rate</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">87%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-trophy fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Billable Hours</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">156.5</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Client Satisfaction</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">4.8/5</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-star-fill fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-bar-chart me-2"></i>Monthly Revenue Trend
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="revenueChart" width="100%" height="50"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-pie-chart me-2"></i>Case Types Distribution
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="caseTypesChart" width="100%" height="50"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reports Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-file-bar-graph me-2"></i>Quick Reports
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-primary w-100 mb-2" onclick="generateTimeReport()">
+                                <i class="bi bi-clock-history"></i><br>
+                                <small>Time Tracking Report</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-success w-100 mb-2" onclick="generateFinancialReport()">
+                                <i class="bi bi-currency-dollar"></i><br>
+                                <small>Financial Report</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-info w-100 mb-2" onclick="generateCaseReport()">
+                                <i class="bi bi-folder-open"></i><br>
+                                <small>Case Analytics</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-warning w-100 mb-2" onclick="generateCaseOutcomeReport()">
+                                <i class="bi bi-trophy"></i><br>
+                                <small>Case Outcomes</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Performance Metrics</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>Current Month</th>
+                                    <th>Previous Month</th>
+                                    <th>Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>New Cases</td>
+                                    <td>8</td>
+                                    <td>6</td>
+                                    <td><span class="badge bg-success">+33%</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Closed Cases</td>
+                                    <td>5</td>
+                                    <td>4</td>
+                                    <td><span class="badge bg-success">+25%</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Billable Hours</td>
+                                    <td>156.5</td>
+                                    <td>142.3</td>
+                                    <td><span class="badge bg-success">+10%</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Client Satisfaction</td>
+                                    <td>4.8/5</td>
+                                    <td>4.6/5</td>
+                                    <td><span class="badge bg-success">+4%</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Top Performers</h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Adv. Gjergji Kola</strong><br>
+                                <small class="text-muted">Criminal Law</small>
+                            </div>
+                            <span class="badge bg-primary rounded-pill">95%</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Adv. Elira Hoxha</strong><br>
+                                <small class="text-muted">Civil Law</small>
+                            </div>
+                            <span class="badge bg-primary rounded-pill">92%</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Adv. Arben Meta</strong><br>
+                                <small class="text-muted">Corporate Law</small>
+                            </div>
+                            <span class="badge bg-primary rounded-pill">89%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Sample chart data - in production this would come from your API
+function generateTimeReport() {
+    alert('Time Tracking Report: This will show detailed time tracking analysis and billable hours breakdown.');
+}
+
+function generateFinancialReport() {
+    alert('Financial Report: This will generate comprehensive financial analysis including revenue, expenses, and profitability.');
+}
+
+function generateCaseReport() {
+    alert('Case Analytics: This will provide detailed case performance metrics and success rates.');
+}
+
+function generateCaseOutcomeReport() {
+    alert('Case Outcomes Report: This will analyze case results and success patterns by type and lawyer.');
+}
+
+function exportFinancialReport() {
+    alert('Exporting Financial Report as PDF...');
+}
+
+function exportCaseReport() {
+    alert('Exporting Case Analytics as Excel...');
+}
+
+function exportTimeReport() {
+    alert('Exporting Time Tracking Report as CSV...');
+}
+
+// Initialize charts when document loads
+document.addEventListener('DOMContentLoaded', function() {
+    // This is where you would initialize Chart.js or similar charting library
+    console.log('Charts would be initialized here');
+});
+</script>
+
+<style>
+.border-left-info {
+    border-left: .25rem solid #36b9cc !important;
+}
+</style>
+{% endblock %}

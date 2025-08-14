@@ -1,0 +1,15 @@
+<!-- templates/dashboard/widgets/progress_bar.html -->
+<div class="progress mb-2">
+    <div class="progress-bar bg-{{ color }}" 
+         role="progressbar" 
+         style="width: {{ percentage }}%" 
+         aria-valuenow="{{ value }}" 
+         aria-valuemin="0" 
+         aria-valuemax="{{ max_value }}">
+        {% if label %}
+            {{ label }}: {{ value }}
+        {% else %}
+            {{ percentage|floatformat:0 }}%
+        {% endif %}
+    </div>
+</div>

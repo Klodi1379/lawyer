@@ -1,0 +1,1244 @@
+<!-- templates/dashboard/enhanced_index_fixed.html - Fixed Enhanced Dashboard Template -->
+{% extends 'dashboard/base.html' %}
+{% load dashboard_filters %}
+
+{% block title %}Enhanced Dashboard - Legal Case Manager{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Enhanced Dashboard</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Fixed styles for enhanced dashboard */
+    
+    /* Widget containers */
+    .widget-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 24px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .widget-container:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    
+    .widget-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        padding: 16px 20px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between; /* Fixed: was 'between' */
+        align-items: center;
+    }
+    
+    .widget-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0;
+        display: flex;
+        align-items: center;
+    }
+    
+    .widget-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .widget-body {
+        padding: 20px;
+    }
+    
+    /* Quick action cards - Fixed styling */
+    .quick-action-card {
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        height: 100%;
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 140px;
+    }
+    
+    .quick-action-card:hover {
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        text-decoration: none;
+        color: inherit;
+        background: #f8fafc;
+    }
+    
+    .quick-action-card:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    }
+    
+    .quick-action-icon {
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+        display: block;
+        line-height: 1;
+    }
+    
+    .quick-action-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+        line-height: 1.2;
+    }
+    
+    .quick-action-description {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin-bottom: 8px;
+        line-height: 1.3;
+    }
+    
+    .quick-action-shortcut {
+        margin-top: auto;
+    }
+    
+    /* Enhanced stat cards */
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        height: 100%;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .stat-card .card-body {
+        padding: 20px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 8px;
+    }
+    
+    .stat-label {
+        color: #64748b;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background-color: rgba(37, 99, 235, 0.1);
+    }
+    
+    /* Notifications */
+    .notification-item {
+        padding: 16px;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background-color 0.2s ease;
+    }
+    
+    .notification-item:hover {
+        background-color: #f8fafc;
+    }
+    
+    .notification-item:last-child {
+        border-bottom: none;
+    }
+    
+    .notification-priority-urgent {
+        border-left: 4px solid #dc2626;
+    }
+    
+    .notification-priority-high {
+        border-left: 4px solid #ea580c;
+    }
+    
+    .notification-priority-medium {
+        border-left: 4px solid #ca8a04;
+    }
+    
+    .notification-priority-low {
+        border-left: 4px solid #16a34a;
+    }
+    
+    /* Mini calendar */
+    .mini-calendar-day {
+        width: 35px;
+        height: 35px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        font-size: 0.9rem;
+        border: 1px solid transparent;
+    }
+    
+    .mini-calendar-day:hover {
+        background-color: #e2e8f0;
+        border-color: #cbd5e1;
+    }
+    
+    .mini-calendar-day.today {
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: 600;
+    }
+    
+    .mini-calendar-day.has-events::after {
+        content: '';
+        position: absolute;
+        bottom: 3px;
+        right: 3px;
+        width: 6px;
+        height: 6px;
+        background-color: #059669;
+        border-radius: 50%;
+    }
+    
+    .mini-calendar-day.has-deadline::after {
+        background-color: #dc2626;
+    }
+    
+    /* Analytics metrics */
+    .analytics-metric {
+        text-align: center;
+        padding: 16px;
+        border-radius: 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .analytics-metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        display: block;
+        line-height: 1;
+    }
+    
+    .analytics-metric-label {
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-top: 8px;
+        font-weight: 500;
+    }
+    
+    /* Chart containers */
+    .chart-container-enhanced {
+        position: relative;
+        height: 300px;
+        padding: 20px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    /* Suggestions */
+    .suggestion-item {
+        background: #fef3c7;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.2s ease;
+    }
+    
+    .suggestion-item:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .suggestion-item.priority-urgent {
+        background: #fee2e2;
+        border-color: #fca5a5;
+    }
+    
+    .suggestion-item.priority-high {
+        background: #fed7aa;
+        border-color: #fdba74;
+    }
+    
+    .suggestion-item .flex-grow-1 {
+        flex: 1;
+    }
+    
+    /* Mobile responsive fixes */
+    @media (max-width: 768px) {
+        .widget-body {
+            padding: 15px;
+        }
+        
+        .quick-action-card {
+            min-height: 120px;
+            padding: 15px;
+        }
+        
+        .quick-action-icon {
+            font-size: 2rem;
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+        }
+        
+        .analytics-metric-value {
+            font-size: 1.5rem;
+        }
+    }
+    
+    /* Loading states */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    
+    /* Animation classes */
+    .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Empty state styling */
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #64748b;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Enhanced Dashboard Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h3 mb-1 d-flex align-items-center">
+                            <i class="bi bi-speedometer2 me-2 text-primary"></i>
+                            Enhanced Dashboard
+                        </h1>
+                        <p class="text-muted mb-0">
+                            Kontrollo performance-in, menaxho detyrat dhe analizo të dhënat
+                        </p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm" onclick="refreshDashboard()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            Rifresko
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="exportDashboard()">
+                            <i class="bi bi-download me-1"></i>
+                            Eksporto
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#shortcutsModal">
+                            <i class="bi bi-keyboard me-1"></i>
+                            Shortcuts
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats Row -->
+<div class="row mb-4">
+    {% if quick_stats %}
+        {% for stat_key, stat_value in quick_stats.items %}
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+            <div class="stat-card fade-in">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="flex-grow-1">
+                            <div class="stat-number text-primary" id="quick-stat-{{ stat_key }}">
+                                {{ stat_value|default:"0" }}
+                            </div>
+                            <div class="stat-label">{{ stat_key|humanize_field_name }}</div>
+                        </div>
+                        <div class="stat-icon text-primary">
+                            {% if stat_key == 'total_cases' or stat_key == 'my_cases' %}
+                                <i class="bi bi-folder"></i>
+                            {% elif stat_key == 'active_cases' %}
+                                <i class="bi bi-folder2-open"></i>
+                            {% elif stat_key == 'total_clients' %}
+                                <i class="bi bi-people"></i>
+                            {% elif stat_key == 'pending_deadlines' or stat_key == 'my_deadlines' %}
+                                <i class="bi bi-clock"></i>
+                            {% else %}
+                                <i class="bi bi-graph-up"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <!-- Default stats if none provided -->
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+            <div class="stat-card fade-in">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="flex-grow-1">
+                            <div class="stat-number text-primary">0</div>
+                            <div class="stat-label">Total Raste</div>
+                        </div>
+                        <div class="stat-icon text-primary">
+                            <i class="bi bi-folder"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+            <div class="stat-card fade-in">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="flex-grow-1">
+                            <div class="stat-number text-success">0</div>
+                            <div class="stat-label">Raste Aktive</div>
+                        </div>
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-folder2-open"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+            <div class="stat-card fade-in">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="flex-grow-1">
+                            <div class="stat-number text-info">0</div>
+                            <div class="stat-label">Klientë</div>
+                        </div>
+                        <div class="stat-icon text-info">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+            <div class="stat-card fade-in">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="flex-grow-1">
+                            <div class="stat-number text-warning">0</div>
+                            <div class="stat-label">Afate në Pritje</div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-clock"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Main Dashboard Content -->
+<div class="row">
+    <!-- Left Column - Analytics & Charts -->
+    <div class="col-lg-8">
+        
+        <!-- Quick Actions Widget -->
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-lightning me-2"></i>
+                    Quick Actions
+                </h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleWidget('quick-actions')" title="Toggle visibility">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="widget-body" id="quick-actions-widget">
+                {% if quick_actions %}
+                    <div class="row g-3">
+                        {% for action in quick_actions %}
+                            {% if action.category != 'profile' %}
+                            <div class="col-xl-3 col-lg-4 col-md-6">
+                                <a href="{{ action.url }}" class="quick-action-card text-decoration-none"
+                                   {% if action.modal %}data-bs-toggle="modal" data-bs-target="#{{ action.modal }}"{% endif %}
+                                   title="{{ action.description }}">
+                                    <i class="{{ action.icon }} quick-action-icon text-{{ action.color }}"></i>
+                                    <div class="quick-action-title">{{ action.title }}</div>
+                                    <div class="quick-action-description">{{ action.description|truncatechars:40 }}</div>
+                                    {% if action.shortcut %}
+                                    <div class="quick-action-shortcut">
+                                        <span class="badge bg-light text-dark">{{ action.shortcut }}</span>
+                                    </div>
+                                    {% endif %}
+                                </a>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <!-- Default quick actions if none provided -->
+                    <div class="row g-3">
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <a href="{% url 'case_create' %}" class="quick-action-card text-decoration-none">
+                                <i class="bi bi-folder-plus quick-action-icon text-primary"></i>
+                                <div class="quick-action-title">Krijo Rast</div>
+                                <div class="quick-action-description">Krijo një rast të ri</div>
+                                <div class="quick-action-shortcut">
+                                    <span class="badge bg-light text-dark">Ctrl+N</span>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <a href="{% url 'client_create' %}" class="quick-action-card text-decoration-none">
+                                <i class="bi bi-person-plus quick-action-icon text-success"></i>
+                                <div class="quick-action-title">Shto Klient</div>
+                                <div class="quick-action-description">Regjistro klient të ri</div>
+                            </a>
+                        </div>
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <a href="{% url 'event_create' %}" class="quick-action-card text-decoration-none">
+                                <i class="bi bi-calendar-plus quick-action-icon text-info"></i>
+                                <div class="quick-action-title">Planifiko Event</div>
+                                <div class="quick-action-description">Krijo takim ose event</div>
+                                <div class="quick-action-shortcut">
+                                    <span class="badge bg-light text-dark">Ctrl+E</span>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <a href="{% url 'document_upload' %}" class="quick-action-card text-decoration-none">
+                                <i class="bi bi-cloud-upload quick-action-icon text-warning"></i>
+                                <div class="quick-action-title">Ngarko Dokument</div>
+                                <div class="quick-action-description">Upload dokument të ri</div>
+                                <div class="quick-action-shortcut">
+                                    <span class="badge bg-light text-dark">Ctrl+U</span>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Suggestions -->
+                {% if quick_suggestions %}
+                <hr class="my-4">
+                <h6 class="mb-3">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Sugjerime
+                </h6>
+                <div id="suggestions-container">
+                    {% for suggestion in quick_suggestions %}
+                    <div class="suggestion-item priority-{{ suggestion.priority }}">
+                        <i class="{{ suggestion.icon }} text-{{ suggestion.color }}"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ suggestion.title }}</div>
+                            <small class="text-muted">{{ suggestion.description }}</small>
+                        </div>
+                        <a href="{{ suggestion.url }}" class="btn btn-sm btn-{{ suggestion.color }}">
+                            Veprë
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Analytics Widgets - Only show if data exists -->
+        {% if analytics_data and not analytics_data.error %}
+        
+        <!-- Case Performance Widget -->
+        {% if analytics_data.case_performance and not analytics_data.case_performance.error %}
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Case Performance
+                </h5>
+                <div class="widget-actions">
+                    <select class="form-select form-select-sm" onchange="updateWidget('case_performance', this.value)">
+                        <option value="30">30 Ditë</option>
+                        <option value="90">90 Ditë</option>
+                        <option value="365">1 Vit</option>
+                    </select>
+                </div>
+            </div>
+            <div class="widget-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value">{{ analytics_data.case_performance.total_cases|default:"0" }}</span>
+                            <div class="analytics-metric-label">Total Raste</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-success">{{ analytics_data.case_performance.resolution_rate|default:"0" }}%</span>
+                            <div class="analytics-metric-label">Success Rate</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-info">{{ analytics_data.case_performance.avg_duration_days|default:"0" }}</span>
+                            <div class="analytics-metric-label">Avg Duration (Days)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-warning">{{ analytics_data.case_performance.closed_cases|default:"0" }}</span>
+                            <div class="analytics-metric-label">Closed Cases</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container-enhanced">
+                    <canvas id="casePerformanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Financial Performance Widget -->
+        {% if analytics_data.financial_performance and not analytics_data.financial_performance.error %}
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-currency-dollar me-2"></i>
+                    Financial Performance
+                </h5>
+            </div>
+            <div class="widget-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-success">{{ analytics_data.financial_performance.total_revenue|floatformat:0|default:"0" }} ALL</span>
+                            <div class="analytics-metric-label">Total Revenue</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-warning">{{ analytics_data.financial_performance.pending_revenue|floatformat:0|default:"0" }} ALL</span>
+                            <div class="analytics-metric-label">Pending Revenue</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-primary">{{ analytics_data.financial_performance.collection_rate|floatformat:1|default:"0" }}%</span>
+                            <div class="analytics-metric-label">Collection Rate</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container-enhanced">
+                    <canvas id="financialChart"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Default analytics widget when no data -->
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Analytics
+                </h5>
+            </div>
+            <div class="widget-body">
+                <div class="empty-state">
+                    <i class="bi bi-graph-up text-muted"></i>
+                    <p>Analytics data will appear here once you start using the system.</p>
+                    <a href="{% url 'case_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus me-1"></i>
+                        Create Your First Case
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Right Column - Calendar & Notifications -->
+    <div class="col-lg-4">
+        
+        <!-- Notifications Widget -->
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-bell me-2"></i>
+                    Notifications
+                    {% if notifications %}
+                    <span class="badge bg-danger ms-2">{{ notifications|length }}</span>
+                    {% endif %}
+                </h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="refreshNotifications()" title="Refresh notifications">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="widget-body p-0" style="max-height: 400px; overflow-y: auto;">
+                <div id="notifications-container">
+                    {% if notifications %}
+                        {% for notification in notifications %}
+                        <div class="notification-item notification-priority-{{ notification.priority|default:'medium' }}">
+                            <div class="d-flex align-items-start">
+                                <i class="{{ notification.icon|default:'bi-info-circle' }} text-{{ notification.priority|default:'primary' }} me-2 mt-1"></i>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">{{ notification.title }}</div>
+                                    <div class="text-muted small">{{ notification.message }}</div>
+                                    <div class="text-muted" style="font-size: 0.75rem;">
+                                        {{ notification.created_at|timesince|default:"Just now" }} ago
+                                    </div>
+                                </div>
+                                {% if notification.url %}
+                                <a href="{{ notification.url }}" class="btn btn-sm btn-outline-primary">
+                                    View
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="bi bi-check-circle text-success"></i>
+                        <div>No notifications</div>
+                        <small class="text-muted">You're all caught up!</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Mini Calendar Widget -->
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-calendar3 me-2"></i>
+                    {% if mini_calendar %}{{ mini_calendar.month_name }}{% else %}Calendar{% endif %}
+                </h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="previousMonth()" title="Previous month">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="nextMonth()" title="Next month">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="widget-body">
+                <div id="mini-calendar-container">
+                    {% if mini_calendar %}
+                        <!-- Calendar days header -->
+                        <div class="row text-center mb-2">
+                            <div class="col fw-bold small text-muted">Mon</div>
+                            <div class="col fw-bold small text-muted">Tue</div>
+                            <div class="col fw-bold small text-muted">Wed</div>
+                            <div class="col fw-bold small text-muted">Thu</div>
+                            <div class="col fw-bold small text-muted">Fri</div>
+                            <div class="col fw-bold small text-muted">Sat</div>
+                            <div class="col fw-bold small text-muted">Sun</div>
+                        </div>
+                        
+                        <!-- Calendar weeks -->
+                        {% for week in mini_calendar.weeks %}
+                        <div class="row text-center mb-1">
+                            {% for day in week %}
+                            <div class="col p-1">
+                                <div class="mini-calendar-day {% if day.is_today %}today{% endif %} {% if day.has_deadline %}has-deadline{% elif day.event_count > 0 %}has-events{% endif %}"
+                                     data-date="{{ day.date_str }}"
+                                     title="{% if day.event_count > 0 %}{{ day.event_count }} event(s){% endif %}">
+                                    {{ day.day }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                        
+                        <div class="mt-3 pt-3 border-top">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">Events: {{ mini_calendar.total_events|default:"0" }}</small>
+                                <a href="{% url 'event_calendar' %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-calendar-event me-1"></i>
+                                    Full Calendar
+                                </a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="bi bi-calendar3"></i>
+                            <div>Calendar loading...</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Events Widget -->
+        {% if upcoming_events %}
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-calendar-event me-2"></i>
+                    Upcoming Events
+                </h5>
+                <div class="widget-actions">
+                    <a href="{% url 'event_create' %}" class="btn btn-sm btn-primary" title="Create new event">
+                        <i class="bi bi-plus"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="widget-body p-0">
+                {% for event in upcoming_events %}
+                <div class="notification-item">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ event.title }}</div>
+                            {% if event.extendedProps.caseTitle %}
+                            <div class="text-muted small">{{ event.extendedProps.caseTitle }}</div>
+                            {% endif %}
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                {{ event.start|date:"D, j M Y H:i" }}
+                            </div>
+                        </div>
+                        {% if event.extendedProps.isDeadline %}
+                        <span class="badge bg-danger">Deadline</span>
+                        {% else %}
+                        <span class="badge bg-primary">Event</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Keyboard Shortcuts Modal -->
+<div class="modal fade" id="shortcutsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-keyboard me-2"></i>
+                    Keyboard Shortcuts
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if keyboard_shortcuts %}
+                    {% for shortcut in keyboard_shortcuts %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background: #f8f9fa;">
+                        <span>{{ shortcut.action }}</span>
+                        <kbd class="bg-primary text-white">{{ shortcut.key }}</kbd>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background: #f8f9fa;">
+                        <span>Create new case</span>
+                        <kbd class="bg-primary text-white">Ctrl+N</kbd>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background: #f8f9fa;">
+                        <span>Create new event</span>
+                        <kbd class="bg-primary text-white">Ctrl+E</kbd>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background: #f8f9fa;">
+                        <span>Upload document</span>
+                        <kbd class="bg-primary text-white">Ctrl+U</kbd>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background: #f8f9fa;">
+                        <span>Global search</span>
+                        <kbd class="bg-primary text-white">Ctrl+K</kbd>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background: #f8f9fa;">
+                        <span>Show shortcuts</span>
+                        <kbd class="bg-primary text-white">Ctrl+/</kbd>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Chart colors configuration
+const chartColors = {
+    primary: '#2563eb',
+    secondary: '#64748b',
+    success: '#059669',
+    warning: '#d97706',
+    danger: '#dc2626',
+    info: '#0891b2'
+};
+
+// Default chart options
+const defaultChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: {
+            position: 'top',
+        },
+        tooltip: {
+            mode: 'index',
+            intersect: false,
+        }
+    },
+    interaction: {
+        mode: 'nearest',
+        axis: 'x',
+        intersect: false
+    }
+};
+
+// Global variables
+let currentDate = new Date();
+
+// Initialize everything when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Dashboard initializing...');
+    
+    // Initialize charts if analytics data exists
+    initializeEnhancedCharts();
+    
+    // Setup keyboard shortcuts
+    setupKeyboardShortcuts();
+    
+    // Auto-refresh every 5 minutes
+    setInterval(refreshDashboard, 300000);
+    
+    // Initialize tooltips
+    if (typeof bootstrap !== 'undefined') {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+    
+    console.log('Dashboard initialized successfully');
+});
+
+function initializeEnhancedCharts() {
+    // Only initialize charts if Chart.js is loaded and data exists
+    if (typeof Chart === 'undefined') {
+        console.warn('Chart.js not loaded, skipping chart initialization');
+        return;
+    }
+    
+    // Chart initialization with error handling
+    {% if analytics_data and analytics_data.case_performance and not analytics_data.case_performance.error %}
+    try {
+        // Case Performance Chart
+        const caseCtx = document.getElementById('casePerformanceChart');
+        if (caseCtx) {
+            new Chart(caseCtx, {
+                type: 'line',
+                data: {
+                    labels: {{ analytics_data.case_performance.monthly_trends|safe|default:"[]" }}.map(item => item.month || 'N/A'),
+                    datasets: [{
+                        label: 'Cases Opened',
+                        data: {{ analytics_data.case_performance.monthly_trends|safe|default:"[]" }}.map(item => item.opened || 0),
+                        borderColor: chartColors.primary,
+                        backgroundColor: chartColors.primary + '20',
+                        tension: 0.4
+                    }, {
+                        label: 'Cases Closed',
+                        data: {{ analytics_data.case_performance.monthly_trends|safe|default:"[]" }}.map(item => item.closed || 0),
+                        borderColor: chartColors.success,
+                        backgroundColor: chartColors.success + '20',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    ...defaultChartOptions,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#f1f5f9'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#f1f5f9'
+                            }
+                        }
+                    }
+                }
+            });
+            console.log('Case performance chart initialized');
+        }
+    } catch (error) {
+        console.error('Error initializing case performance chart:', error);
+    }
+    {% endif %}
+
+    {% if analytics_data and analytics_data.financial_performance and not analytics_data.financial_performance.error %}
+    try {
+        // Financial Performance Chart
+        const finCtx = document.getElementById('financialChart');
+        if (finCtx) {
+            new Chart(finCtx, {
+                type: 'bar',
+                data: {
+                    labels: {{ analytics_data.financial_performance.monthly_revenue|safe|default:"[]" }}.map(item => item.month || 'N/A'),
+                    datasets: [{
+                        label: 'Paid Revenue',
+                        data: {{ analytics_data.financial_performance.monthly_revenue|safe|default:"[]" }}.map(item => item.paid || 0),
+                        backgroundColor: chartColors.success
+                    }, {
+                        label: 'Pending Revenue', 
+                        data: {{ analytics_data.financial_performance.monthly_revenue|safe|default:"[]" }}.map(item => item.pending || 0),
+                        backgroundColor: chartColors.warning
+                    }]
+                },
+                options: {
+                    ...defaultChartOptions,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#f1f5f9'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' ALL';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#f1f5f9'
+                            }
+                        }
+                    }
+                }
+            });
+            console.log('Financial chart initialized');
+        }
+    } catch (error) {
+        console.error('Error initializing financial chart:', error);
+    }
+    {% endif %}
+}
+
+function refreshDashboard() {
+    console.log('Refreshing dashboard...');
+    
+    // Show loading indicator
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'loading-overlay';
+    loadingOverlay.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+    document.body.appendChild(loadingOverlay);
+    
+    // Simulate refresh (in real implementation, this would be an API call)
+    setTimeout(() => {
+        document.body.removeChild(loadingOverlay);
+        showNotification('Dashboard refreshed successfully!', 'success');
+        
+        // Refresh notifications
+        refreshNotifications();
+    }, 1000);
+}
+
+function refreshNotifications() {
+    console.log('Refreshing notifications...');
+    
+    // In a real implementation, this would fetch from the API
+    // For now, just show a success message
+    const container = document.getElementById('notifications-container');
+    if (container) {
+        // This would be replaced with actual API call results
+        console.log('Notifications container found, would refresh with new data');
+    }
+}
+
+function exportDashboard() {
+    const format = prompt('Export format (json/csv/pdf):', 'json');
+    if (format && ['json', 'csv', 'pdf'].includes(format.toLowerCase())) {
+        // In real implementation, this would call the export API
+        showNotification(`Exporting dashboard as ${format.toUpperCase()}...`, 'info');
+        // window.location.href = `/dashboard/api/export/?format=${format}`;
+    } else if (format) {
+        showNotification('Invalid format. Please choose json, csv, or pdf.', 'error');
+    }
+}
+
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey) {
+            switch(e.key) {
+                case 'n':
+                    e.preventDefault();
+                    {% if user.role in 'admin,lawyer' %}
+                    window.location.href = "{% url 'case_create' %}";
+                    {% endif %}
+                    break;
+                case 'e':
+                    e.preventDefault();
+                    window.location.href = "{% url 'event_create' %}";
+                    break;
+                case 'u':
+                    e.preventDefault();
+                    window.location.href = "{% url 'document_upload' %}";
+                    break;
+                case 'k':
+                    e.preventDefault();
+                    showSearchModal();
+                    break;
+                case '/':
+                    e.preventDefault();
+                    const shortcutsModal = document.getElementById('shortcutsModal');
+                    if (shortcutsModal && typeof bootstrap !== 'undefined') {
+                        new bootstrap.Modal(shortcutsModal).show();
+                    }
+                    break;
+            }
+        }
+    });
+}
+
+function showSearchModal() {
+    // Placeholder for global search modal
+    showNotification('Global search coming soon!', 'info');
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 400px;';
+    alert.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'x-circle' : 'info-circle'} me-2"></i>
+            <div>${message}</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alert);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.parentNode.removeChild(alert);
+        }
+    }, 5000);
+}
+
+function toggleWidget(widgetId) {
+    const widget = document.getElementById(widgetId + '-widget');
+    if (widget) {
+        const isHidden = widget.style.display === 'none';
+        widget.style.display = isHidden ? 'block' : 'none';
+        
+        // Update button icon
+        const button = document.querySelector(`[onclick="toggleWidget('${widgetId}')"] i`);
+        if (button) {
+            button.className = isHidden ? 'bi bi-eye' : 'bi bi-eye-slash';
+        }
+    }
+}
+
+function updateWidget(widgetName, dateRange) {
+    console.log('Updating widget:', widgetName, 'with date range:', dateRange);
+    showNotification(`Updating ${widgetName} widget...`, 'info');
+    
+    // In real implementation, this would make an API call to update the widget data
+}
+
+function previousMonth() {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    updateMiniCalendar();
+}
+
+function nextMonth() {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    updateMiniCalendar();
+}
+
+function updateMiniCalendar() {
+    console.log('Updating mini calendar...');
+    
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    
+    // In real implementation, this would fetch calendar data from API
+    // For now, just show a notification
+    showNotification(`Calendar updated to ${month}/${year}`, 'info');
+}
+
+// Make functions globally available
+window.refreshDashboard = refreshDashboard;
+window.exportDashboard = exportDashboard;
+window.toggleWidget = toggleWidget;
+window.updateWidget = updateWidget;
+window.previousMonth = previousMonth;
+window.nextMonth = nextMonth;
+window.refreshNotifications = refreshNotifications;
+
+</script>
+{% endblock %}

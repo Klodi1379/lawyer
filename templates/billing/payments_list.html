@@ -1,0 +1,358 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Payments{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Payments Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-credit-card me-2"></i>Payments Management
+            </h1>
+            <p class="text-muted mb-0">Track all client payments and transactions</p>
+        </div>
+        <div>
+            <a href="{% url 'record_manual_payment' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>Record Payment
+            </a>
+            <div class="btn-group ms-2">
+                <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-funnel me-1"></i>Filter
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="?status=all">All Payments</a></li>
+                    <li><a class="dropdown-item" href="?method=bank_transfer">Bank Transfer</a></li>
+                    <li><a class="dropdown-item" href="?method=credit_card">Credit Card</a></li>
+                    <li><a class="dropdown-item" href="?method=cash">Cash</a></li>
+                    <li><a class="dropdown-item" href="?method=check">Check</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="?date=today">Today</a></li>
+                    <li><a class="dropdown-item" href="?date=this_week">This Week</a></li>
+                    <li><a class="dropdown-item" href="?date=this_month">This Month</a></li>
+                </ul>
+            </div>
+            <button class="btn btn-outline-info ms-2" onclick="exportPayments()">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Total Received</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">€{{ total_received|default:0|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-cash-stack fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                This Month</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">€{{ total_this_month|default:0|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-calendar-month fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Average Payment</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">€{{ average_payment|default:0|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-bar-chart fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Total Payments</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ payments.count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-receipt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payments Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="bi bi-list me-2"></i>Payment History
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="paymentsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Invoice</th>
+                            <th>Client</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Reference</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                            <td>
+                                {% if payment.invoice %}
+                                    <a href="{% url 'invoice_detail' payment.invoice.id %}" class="text-decoration-none">
+                                        <strong>{{ payment.invoice.invoice_number }}</strong>
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">Manual Payment</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if payment.invoice and payment.invoice.client %}
+                                    <a href="{% url 'client_detail' payment.invoice.client.id %}" class="text-decoration-none">
+                                        {{ payment.invoice.client.company_name|default:payment.invoice.client.user.get_full_name }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">No Client</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong class="text-success">
+                                    {{ payment.currency.symbol|default:"€" }}{{ payment.amount|floatformat:2 }}
+                                </strong>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">
+                                    {{ payment.get_payment_method_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if payment.reference_number %}
+                                    <code>{{ payment.reference_number }}</code>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-success">Completed</span>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="viewPaymentDetails({{ payment.id }})" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info" onclick="printReceipt({{ payment.id }})" title="Print Receipt">
+                                        <i class="bi bi-printer"></i>
+                                    </button>
+                                    {% if payment.notes %}
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="showNotes('{{ payment.notes|escapejs }}')" title="View Notes">
+                                        <i class="bi bi-chat-text"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="bi bi-credit-card fs-1 d-block mb-3"></i>
+                                No payments found. <a href="{% url 'record_manual_payment' %}">Record your first payment</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="Payments pagination">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">&laquo; First</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                        </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last &raquo;</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Payment Details Modal -->
+<div class="modal fade" id="paymentDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Payment Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="paymentDetailsContent">
+                <!-- Content loaded dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="printReceipt()">Print Receipt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notes Modal -->
+<div class="modal fade" id="notesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Payment Notes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="notesContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// View payment details
+function viewPaymentDetails(paymentId) {
+    fetch(`/billing/payments/${paymentId}/details/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('paymentDetailsContent').innerHTML = data.html;
+                new bootstrap.Modal(document.getElementById('paymentDetailsModal')).show();
+            } else {
+                alert('Error loading payment details: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading payment details');
+        });
+}
+
+// Print receipt
+function printReceipt(paymentId) {
+    window.open(`/billing/payments/${paymentId}/receipt/`, '_blank');
+}
+
+// Show notes
+function showNotes(notes) {
+    document.getElementById('notesContent').innerHTML = `<p class="mb-0">${notes}</p>`;
+    new bootstrap.Modal(document.getElementById('notesModal')).show();
+}
+
+// Export payments
+function exportPayments() {
+    const currentParams = new URLSearchParams(window.location.search);
+    window.open(`/billing/payments/export/?${currentParams.toString()}`, '_blank');
+}
+
+// Auto-refresh every 60 seconds for real-time updates
+setInterval(() => {
+    // Only refresh if no modal is open
+    if (!document.querySelector('.modal.show')) {
+        location.reload();
+    }
+}, 60000);
+</script>
+
+<style>
+.border-left-primary {
+    border-left: .25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: .25rem solid #1cc88a !important;
+}
+
+.border-left-warning {
+    border-left: .25rem solid #f6c23e !important;
+}
+
+.border-left-info {
+    border-left: .25rem solid #36b9cc !important;
+}
+
+#paymentsTable tbody tr:hover {
+    background-color: rgba(0,0,0,0.02);
+}
+
+.btn-group .btn {
+    margin-right: 2px;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+code {
+    font-size: 0.8em;
+    color: #6c757d;
+    background-color: #f8f9fa;
+    padding: 0.2em 0.4em;
+    border-radius: 0.25rem;
+}
+</style>
+{% endblock %}

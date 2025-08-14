@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Expenses{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Expenses Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-receipt-cutoff me-2"></i>Expenses Management
+            </h1>
+            <p class="text-muted mb-0">Track and manage all business expenses</p>
+        </div>
+        <div>
+            <a href="{% url 'create_expense' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>Add Expense
+            </a>
+            <div class="btn-group ms-2">
+                <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-funnel me-1"></i>Filter
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="?status=all">All Expenses</a></li>
+                    <li><a class="dropdown-item" href="?billable=true">Billable</a></li>
+                    <li><a class="dropdown-item" href="?billable=false">Non-Billable</a></li>
+                    <li><a class="dropdown-item" href="?reimbursed=true">Reimbursed</a></li>
+                    <li><a class="dropdown-item" href="?reimbursed=false">Pending</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">By Category</h6></li>
+                    {% for category in expense_categories %}
+                    <li><a class="dropdown-item" href="?category={{ category.name }}">{{ category.name }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <a href="{% url 'expense_categories' %}" class="btn btn-outline-info ms-2">
+                <i class="bi bi-tags me-1"></i>Categories
+            </a>
+            <a href="{% url 'expense_export' %}" class="btn btn-outline-success ms-2">
+                <i class="bi bi-download me-1"></i>Export
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Expenses</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ expenses.count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-receipt-cutoff fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                This Month</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">€{{ total_this_month|default:0|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-calendar-month fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Pending</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ pending_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Reimbursed</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">€{{ total_reimbursed|default:0|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expenses Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="bi bi-list me-2"></i>All Expenses
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="expensesTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th>Case</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Receipt</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in expenses %}
+                        <tr>
+                            <td>{{ expense.expense_date|date:"M d, Y" }}</td>
+                            <td>
+                                <strong>{{ expense.description|truncatechars:40 }}</strong>
+                                {% if expense.vendor %}
+                                    <br><small class="text-muted">Vendor: {{ expense.vendor }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">
+                                    {{ expense.get_category_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if expense.case %}
+                                    <a href="{% url 'case_detail' expense.case.id %}" class="text-decoration-none">
+                                        {{ expense.case.title|truncatechars:25 }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">General</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ expense.currency.symbol|default:"€" }}{{ expense.amount|floatformat:2 }}</strong>
+                            </td>
+                            <td>
+                                {% if expense.status == 'pending' %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% elif expense.status == 'approved' %}
+                                    <span class="badge bg-success">Approved</span>
+                                {% elif expense.status == 'rejected' %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                {% elif expense.status == 'reimbursed' %}
+                                    <span class="badge bg-info">Reimbursed</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if expense.receipt %}
+                                    <a href="{{ expense.receipt.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-file-earmark-image"></i>
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">No receipt</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'expense_detail' expense.id %}" class="btn btn-sm btn-outline-primary" title="View">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    {% if expense.status == 'pending' %}
+                                    <a href="{% url 'expense_edit' expense.id %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if expense.status == 'approved' and request.user.role in 'admin,lawyer' %}
+                                    <button class="btn btn-sm btn-outline-success" onclick="markReimbursed({{ expense.id }})" title="Mark Reimbursed">
+                                        <i class="bi bi-check"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="bi bi-receipt-cutoff fs-1 d-block mb-3"></i>
+                                No expenses found. <a href="{% url 'create_expense' %}">Add your first expense</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="Expenses pagination">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">&laquo; First</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                        </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last &raquo;</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Mark expense as reimbursed
+function markReimbursed(expenseId) {
+    if (confirm('Mark this expense as reimbursed?')) {
+        fetch(`/billing/expenses/${expenseId}/reimburse/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Expense marked as reimbursed!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+</script>
+
+<style>
+.border-left-primary {
+    border-left: .25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: .25rem solid #1cc88a !important;
+}
+
+.border-left-warning {
+    border-left: .25rem solid #f6c23e !important;
+}
+
+.border-left-info {
+    border-left: .25rem solid #36b9cc !important;
+}
+
+#expensesTable tbody tr:hover {
+    background-color: rgba(0,0,0,0.02);
+}
+
+.btn-group .btn {
+    margin-right: 2px;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+{% endblock %}

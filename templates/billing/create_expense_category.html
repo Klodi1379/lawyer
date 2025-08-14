@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Edit Category{% else %}Create Category{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-{% if object %}pencil{% else %}plus-circle{% endif %} me-2"></i>
+                {% if object %}Edit Expense Category{% else %}Create Expense Category{% endif %}
+            </h1>
+            <p class="text-muted mb-0">
+                {% if object %}Update category settings and properties{% else %}Create a new expense category{% endif %}
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'expense_categories' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Back to Categories
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Category Form -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-info-circle me-2"></i>Category Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="name" class="form-label">Category Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       value="{{ form.name.value|default:'' }}" 
+                                       placeholder="e.g., Travel & Transportation" required>
+                                <small class="form-text text-muted">Choose a clear, descriptive name</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="default_markup_percentage" class="form-label">Default Markup %</label>
+                                <div class="input-group">
+                                    <input type="number" step="0.01" class="form-control" 
+                                           id="default_markup_percentage" name="default_markup_percentage"
+                                           value="{{ form.default_markup_percentage.value|default:0 }}" 
+                                           min="0" max="100" placeholder="0.00">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <small class="form-text text-muted">Markup percentage for client billing</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" 
+                                      placeholder="Brief description of what expenses fall under this category...">{{ form.description.value|default:'' }}</textarea>
+                        </div>
+
+                        <!-- Category Settings -->
+                        <div class="card border-light mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Category Settings</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="is_billable" name="is_billable"
+                                                   {% if form.is_billable.value %}checked{% endif %}>
+                                            <label class="form-check-label" for="is_billable">
+                                                <strong>Billable to Clients</strong>
+                                            </label>
+                                            <small class="d-block text-muted">Expenses in this category can be billed to clients</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                                                   {% if form.is_active.value or not object %}checked{% endif %}>
+                                            <label class="form-check-label" for="is_active">
+                                                <strong>Active</strong>
+                                            </label>
+                                            <small class="d-block text-muted">Category is available for new expenses</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'expense_categories' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-2"></i>
+                                {% if object %}Update Category{% else %}Create Category{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Category Tips -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-lightbulb me-2"></i>Category Tips
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item border-0 px-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>Be Specific</strong>
+                            <small class="d-block text-muted">Use clear names like "Court Filing Fees" instead of just "Fees"</small>
+                        </div>
+                        <div class="list-group-item border-0 px-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>Set Markup Wisely</strong>
+                            <small class="d-block text-muted">Consider industry standards and your firm's policies</small>
+                        </div>
+                        <div class="list-group-item border-0 px-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>Group Related Expenses</strong>
+                            <small class="d-block text-muted">Create categories that group similar expense types</small>
+                        </div>
+                        <div class="list-group-item border-0 px-0">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <strong>Consider Billing Rules</strong>
+                            <small class="d-block text-muted">Some expenses may not be billable to clients</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Examples -->
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-folder me-2"></i>Common Categories
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-muted">Billable Categories:</h6>
+                    <ul class="small mb-3">
+                        <li>Court Filing Fees (0% markup)</li>
+                        <li>Legal Research (10-15% markup)</li>
+                        <li>Document Production (5-10% markup)</li>
+                        <li>Expert Witnesses (0-5% markup)</li>
+                    </ul>
+                    
+                    <h6 class="text-muted">Internal Categories:</h6>
+                    <ul class="small mb-0">
+                        <li>Office Supplies</li>
+                        <li>Staff Training</li>
+                        <li>Marketing & Business Development</li>
+                        <li>Professional Insurance</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Toggle markup field based on billable status
+document.getElementById('is_billable').addEventListener('change', function() {
+    const markupField = document.getElementById('default_markup_percentage');
+    const markupContainer = markupField.closest('.col-md-6');
+    
+    if (this.checked) {
+        markupContainer.style.opacity = '1';
+        markupField.disabled = false;
+    } else {
+        markupContainer.style.opacity = '0.5';
+        markupField.disabled = true;
+        markupField.value = '0';
+    }
+});
+
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const name = document.getElementById('name').value.trim();
+    if (name.length < 3) {
+        e.preventDefault();
+        alert('Category name must be at least 3 characters long');
+        return false;
+    }
+    
+    const markup = parseFloat(document.getElementById('default_markup_percentage').value || 0);
+    if (markup < 0 || markup > 100) {
+        e.preventDefault();
+        alert('Markup percentage must be between 0 and 100');
+        return false;
+    }
+});
+
+// Initialize form state
+document.addEventListener('DOMContentLoaded', function() {
+    // Trigger billable change to set initial state
+    document.getElementById('is_billable').dispatchEvent(new Event('change'));
+    
+    // Focus on name field
+    document.getElementById('name').focus();
+});
+
+// Auto-suggest based on name
+const commonCategories = {
+    'travel': { billable: true, markup: 5, description: 'Business travel, transportation, parking, and related expenses' },
+    'court': { billable: true, markup: 0, description: 'Court filing fees, legal document fees, and court-related costs' },
+    'research': { billable: true, markup: 10, description: 'Legal research databases, reference materials, and research tools' },
+    'office': { billable: false, markup: 0, description: 'General office supplies, stationery, and basic equipment' },
+    'communication': { billable: true, markup: 15, description: 'Phone calls, internet, postage, and communication services' }
+};
+
+document.getElementById('name').addEventListener('input', function() {
+    const name = this.value.toLowerCase();
+    for (let key in commonCategories) {
+        if (name.includes(key)) {
+            const suggestion = commonCategories[key];
+            
+            if (!document.getElementById('description').value) {
+                document.getElementById('description').value = suggestion.description;
+            }
+            
+            document.getElementById('is_billable').checked = suggestion.billable;
+            document.getElementById('default_markup_percentage').value = suggestion.markup;
+            
+            // Trigger change event
+            document.getElementById('is_billable').dispatchEvent(new Event('change'));
+            break;
+        }
+    }
+});
+</script>
+
+<style>
+.form-control:focus, .form-select:focus {
+    border-color: #bac8f3;
+    box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
+}
+
+.card .card-header {
+    background-color: #f8f9fc;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.form-check-input:checked {
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+
+.list-group-item {
+    border: none !important;
+}
+
+.input-group-text {
+    background-color: #e9ecef;
+    font-weight: 600;
+}
+
+.form-switch .form-check-input {
+    width: 2em;
+    height: 1em;
+}
+</style>
+{% endblock %}

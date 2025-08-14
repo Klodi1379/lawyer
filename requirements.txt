@@ -1,0 +1,224 @@
+# requirements.txt - Dependencies për Legal Case Manager System
+
+# ==========================================
+# DJANGO & CORE FRAMEWORK
+# ==========================================
+Django>=4.2,<5.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.0.0
+django-filter>=23.0
+django-crispy-forms>=2.0
+crispy-bootstrap5>=0.7
+
+# ==========================================
+# DATABASE & STORAGE
+# ==========================================
+psycopg2-binary>=2.9.0  # PostgreSQL adapter
+dj-database-url>=2.0.0  # Database URL parsing
+redis>=4.5.0            # Redis for caching and Celery
+django-redis>=5.2.0     # Django Redis cache backend
+
+# Cloud storage (optional)
+boto3>=1.26.0           # AWS S3 integration
+django-storages>=1.13.0 # Django storage backends
+
+# ==========================================
+# TASK QUEUE & BACKGROUND PROCESSING
+# ==========================================
+celery>=5.2.0
+django-celery-beat>=2.4.0
+django-celery-results>=2.4.0
+
+# ==========================================
+# API DOCUMENTATION
+# ==========================================
+drf-yasg>=1.21.0        # Swagger/OpenAPI documentation
+uritemplate>=4.1.1      # Required by drf-yasg
+
+# ==========================================
+# AUTHENTICATION & SECURITY
+# ==========================================
+django-otp>=1.1.0       # Two-factor authentication
+qrcode>=7.4.0           # QR code generation for 2FA
+Pillow>=9.5.0           # Image processing (for QR codes and file handling)
+
+# ==========================================
+# LLM & AI INTEGRATIONS
+# ==========================================
+openai>=1.0.0           # OpenAI API client
+anthropic>=0.18.0       # Anthropic Claude API client (optional)
+requests>=2.31.0        # HTTP library for API calls
+httpx>=0.24.0           # Modern HTTP client (alternative to requests)
+
+# ==========================================
+# DATA PROCESSING & ANALYSIS
+# ==========================================
+pandas>=2.0.0           # Data analysis and manipulation
+numpy>=1.24.0           # Numerical computing
+openpyxl>=3.1.0         # Excel file processing
+python-docx>=0.8.11     # Word document processing
+PyPDF2>=3.0.0           # PDF processing
+python-magic>=0.4.27    # File type detection
+
+# ==========================================
+# UTILITIES & HELPERS
+# ==========================================
+python-decouple>=3.8    # Environment variable management
+python-dotenv>=1.0.0    # .env file support
+whitenoise>=6.4.0       # Static file serving
+gunicorn>=20.1.0        # WSGI HTTP Server for production
+
+# Date and time utilities
+python-dateutil>=2.8.0
+pytz>=2023.3
+
+# Text processing
+bleach>=6.0.0           # HTML sanitization
+markdown>=3.4.0         # Markdown processing
+
+# ==========================================
+# DEVELOPMENT & TESTING
+# ==========================================
+# Development tools (install with: pip install -r requirements-dev.txt)
+pytest>=7.3.0
+pytest-django>=4.5.0
+pytest-cov>=4.1.0
+pytest-mock>=3.10.0
+factory-boy>=3.2.0      # Test data factories
+faker>=18.9.0           # Fake data generation
+
+# Code quality
+black>=23.3.0           # Code formatter
+isort>=5.12.0           # Import sorting
+flake8>=6.0.0           # Linting
+mypy>=1.3.0             # Type checking
+pre-commit>=3.3.0       # Git hooks
+
+# Django development tools
+django-extensions>=3.2.0
+django-debug-toolbar>=4.1.0
+
+# ==========================================
+# MONITORING & LOGGING
+# ==========================================
+sentry-sdk>=1.25.0      # Error tracking and monitoring
+
+# ==========================================
+# WEB SCRAPING & DATA COLLECTION (Optional)
+# ==========================================
+# For legal research and data collection
+beautifulsoup4>=4.12.0  # HTML parsing
+scrapy>=2.9.0           # Web scraping framework (optional)
+selenium>=4.9.0         # Browser automation (optional)
+
+# ==========================================
+# DOCUMENT PROCESSING ADVANCED
+# ==========================================
+# Advanced document processing capabilities
+python-docx2txt>=0.8    # Extract text from Word documents
+pdfplumber>=0.9.0       # PDF text extraction
+textract>=1.6.5         # Extract text from various file formats
+
+# ==========================================
+# LEGAL-SPECIFIC LIBRARIES (Optional)
+# ==========================================
+# Court data and legal document processing
+courtlistener>=0.9.0   # CourtListener API client (US courts)
+legislice>=0.1.0        # Legal document processing (if available)
+
+# ==========================================
+# INTERNATIONALIZATION
+# ==========================================
+babel>=2.12.0           # Internationalization utilities
+
+# ==========================================
+# PERFORMANCE & OPTIMIZATION
+# ==========================================
+django-cachalot>=2.5.0  # ORM cache
+django-compression>=3.0 # Static file compression
+
+# ==========================================
+# BACKUP & MAINTENANCE
+# ==========================================
+django-dbbackup>=4.0.0  # Database backup utilities
+
+# ==========================================
+# VERSION PINNING NOTES
+# ==========================================
+# All versions are specified with >= to allow for minor updates
+# while maintaining compatibility. For production deployments,
+# consider using exact versions or version ranges that have been tested.
+
+# ==========================================
+# OPTIONAL DEPENDENCIES
+# ==========================================
+# Install based on specific needs:
+
+# For advanced PDF processing:
+# PyMuPDF>=1.22.0       # Alternative PDF library
+# pdfminer.six>=20221105 # PDF mining
+
+# For advanced Excel processing:
+# xlwings>=0.30.0       # Excel automation
+
+# For machine learning features:
+# scikit-learn>=1.2.0   # Machine learning
+# transformers>=4.30.0  # Hugging Face transformers for NLP
+
+# For geographic features:
+# django-countries>=7.5.0 # Country fields
+# geoip2>=4.6.0          # IP geolocation
+
+# For advanced search:
+# elasticsearch>=8.8.0   # Elasticsearch integration
+# django-elasticsearch-dsl>=7.3.0
+
+# For real-time features:
+# channels>=4.0.0        # WebSocket support
+# channels-redis>=4.1.0  # Redis channel layer
+
+# ==========================================
+# INSTALLATION NOTES
+# ==========================================
+# 1. Create virtual environment:
+#    python -m venv venv
+#    source venv/bin/activate  # On Windows: venv\Scripts\activate
+#
+# 2. Install requirements:
+#    pip install -r requirements.txt
+#
+# 3. For development:
+#    pip install -r requirements-dev.txt
+#
+# 4. For production, also install:
+#    pip install uwsgi  # Or gunicorn (already included)
+#
+# 5. Environment-specific packages:
+#    - For Windows: pip install pywin32
+#    - For Linux production: pip install setproctitle
+
+
+# ==========================================
+# ENHANCED DASHBOARD DEPENDENCIES
+# ==========================================
+# Real-time WebSocket support
+channels>=4.0.0
+channels-redis>=4.1.0
+websockets>=11.0
+
+# Dashboard widgets and data visualization
+plotly>=5.14.0          # Advanced charting library
+django-widget-tweaks>=1.4.12  # Form widget customization
+
+# Progressive Web App support
+django-pwa>=1.0.10      # PWA utilities
+
+# Advanced caching and performance
+django-cachalot>=2.5.0  # ORM cache
+django-compressor>=4.3  # CSS/JS compression
+
+# Enhanced static file handling
+django-pipeline>=2.1.0  # Asset pipeline
+
+# Background task monitoring
+flower>=2.0.0           # Celery monitoring

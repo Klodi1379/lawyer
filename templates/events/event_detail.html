@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ event.title }} - Event Details{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header" style="background-color: {{ event.get_calendar_color }}; color: white;">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h4 class="mb-0">
+                            <i class="bi bi-calendar-event me-2"></i>
+                            {{ event.title }}
+                        </h4>
+                    </div>
+                    <div class="col-auto">
+                        {% if event.is_deadline %}
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-alarm"></i> DEADLINE
+                            </span>
+                        {% endif %}
+                        {% if event.is_past_due %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-exclamation-triangle"></i> PAST DUE
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Event Details -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-clock"></i> Date & Time</h6>
+                        <p class="mb-0">
+                            <strong>Start:</strong> {{ event.starts_at|date:"l, F d, Y" }}
+                            {% if not event.is_all_day %} at {{ event.starts_at|time:"H:i" }}{% endif %}
+                        </p>
+                        {% if event.ends_at %}
+                        <p class="mb-0">
+                            <strong>End:</strong> 
+                            {% if event.ends_at.date == event.starts_at.date %}
+                                {{ event.ends_at|time:"H:i" }}
+                            {% else %}
+                                {{ event.ends_at|date:"l, F d, Y" }} at {{ event.ends_at|time:"H:i" }}
+                            {% endif %}
+                        </p>
+                        {% endif %}
+                        {% if event.is_all_day %}
+                            <small class="text-muted">All Day Event</small>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-flag"></i> Priority & Type</h6>
+                        <p class="mb-1">
+                            <strong>Priority:</strong> 
+                            <span class="badge bg-{% if event.priority == 'urgent' %}danger{% elif event.priority == 'high' %}warning{% elif event.priority == 'medium' %}info{% else %}secondary{% endif %}">
+                                {{ event.get_priority_display }}
+                            </span>
+                        </p>
+                        {% if event.event_type %}
+                        <p class="mb-0">
+                            <strong>Type:</strong> 
+                            <span class="badge" style="background-color: {{ event.event_type.color }};">
+                                {{ event.event_type.name }}
+                            </span>
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Description -->
+                {% if event.description %}
+                <div class="mb-4">
+                    <h6><i class="bi bi-file-text"></i> Description</h6>
+                    <div class="p-3 bg-light rounded">
+                        {{ event.description|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Location -->
+                {% if event.location %}
+                <div class="mb-4">
+                    <h6><i class="bi bi-geo-alt"></i> Location</h6>
+                    <p class="mb-0">{{ event.location }}</p>
+                    <small class="text-muted">
+                        <a href="https://maps.google.com/?q={{ event.location|urlencode }}" target="_blank" class="text-decoration-none">
+                            <i class="bi bi-map"></i> View on Map
+                        </a>
+                    </small>
+                </div>
+                {% endif %}
+
+                <!-- Attendees -->
+                {% if event.attendees.all %}
+                <div class="mb-4">
+                    <h6><i class="bi bi-people"></i> Attendees ({{ event.attendees.count }})</h6>
+                    <div class="row">
+                        {% for attendee in event.attendees.all %}
+                        <div class="col-md-6 mb-2">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2"
+                                     style="width: 32px; height: 32px;">
+                                    <small class="text-white fw-bold">{{ attendee.first_name.0 }}{{ attendee.last_name.0 }}</small>
+                                </div>
+                                <div>
+                                    <div class="fw-bold">{{ attendee.get_full_name }}</div>
+                                    <small class="text-muted">{{ attendee.get_role_display }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Reminder Info -->
+                <div class="mb-4">
+                    <h6><i class="bi bi-bell"></i> Reminder</h6>
+                    <p class="mb-0">
+                        {% if event.reminder_minutes > 0 %}
+                            <strong>{{ event.reminder_minutes }} minutes</strong> before the event
+                            {% if event.reminder_sent %}
+                                <span class="badge bg-success ms-2">
+                                    <i class="bi bi-check-circle"></i> Sent
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary ms-2">
+                                    <i class="bi bi-clock"></i> Pending
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">No reminder set</span>
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex gap-2 flex-wrap">
+                    {% if user.role in 'admin,lawyer' or event.created_by == user or user in event.attendees.all %}
+                    <a href="{% url 'event_update' event.pk %}" class="btn btn-info">
+                        <i class="bi bi-pencil"></i> Edit Event
+                    </a>
+                    {% endif %}
+                    
+                    {% if user.role == 'admin' or event.created_by == user %}
+                    <a href="{% url 'event_delete' event.pk %}" class="btn btn-outline-danger">
+                        <i class="bi bi-trash"></i> Delete
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{% url 'event_calendar' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-calendar3"></i> Back to Calendar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Related Case Info -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-briefcase"></i> Related Case</h6>
+            </div>
+            <div class="card-body">
+                <h6>
+                    <a href="{% url 'case_detail' event.case.pk %}" class="text-decoration-none">
+                        {{ event.case.title }}
+                    </a>
+                </h6>
+                <p class="text-muted mb-2">{{ event.case.uid }}</p>
+                <p class="mb-2">
+                    <strong>Client:</strong> {{ event.case.client.full_name }}
+                </p>
+                <p class="mb-2">
+                    <strong>Type:</strong> {{ event.case.get_case_type_display }}
+                </p>
+                <p class="mb-0">
+                    <strong>Status:</strong> 
+                    <span class="badge bg-{% if event.case.status == 'open' %}success{% elif event.case.status == 'closed' %}secondary{% else %}primary{% endif %}">
+                        {{ event.case.get_status_display }}
+                    </span>
+                </p>
+                
+                <div class="mt-3">
+                    <a href="{% url 'case_event_create' event.case.pk %}" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-plus"></i> Add Event to Case
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Metadata -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Event Information</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <strong>Created by:</strong> {{ event.created_by.get_full_name }}
+                </p>
+                <p class="mb-2">
+                    <strong>Created:</strong> {{ event.created_at|date:"M d, Y H:i" }}
+                </p>
+                <p class="mb-0">
+                    <strong>Last updated:</strong> {{ event.updated_at|date:"M d, Y H:i" }}
+                </p>
+                
+                {% if event.is_recurring %}
+                <div class="mt-2">
+                    <span class="badge bg-info">
+                        <i class="bi bi-arrow-repeat"></i> Recurring Event
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if not event.reminder_sent and event.reminder_minutes > 0 %}
+                    <button class="btn btn-sm btn-outline-warning" onclick="sendReminder({{ event.pk }})">
+                        <i class="bi bi-bell"></i> Send Reminder Now
+                    </button>
+                    {% endif %}
+                    
+                    <button class="btn btn-sm btn-outline-info" onclick="copyEventLink()">
+                        <i class="bi bi-link"></i> Copy Event Link
+                    </button>
+                    
+                    <button class="btn btn-sm btn-outline-secondary" onclick="exportToCalendar()">
+                        <i class="bi bi-download"></i> Export to Calendar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function sendReminder(eventId) {
+    // This would trigger an AJAX call to send reminder
+    alert('Reminder functionality would be implemented here with Celery task.');
+}
+
+function copyEventLink() {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(function() {
+        alert('Event link copied to clipboard!');
+    });
+}
+
+function exportToCalendar() {
+    // Generate ICS file for download
+    alert('Calendar export functionality would be implemented here.');
+}
+</script>
+{% endblock %}

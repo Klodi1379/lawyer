@@ -1,0 +1,929 @@
+<!-- templates/dashboard/enhanced_index.html - Enhanced Dashboard Template -->
+{% extends 'dashboard/base.html' %}
+{% load dashboard_filters %}
+
+{% block title %}Enhanced Dashboard - Legal Case Manager{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Enhanced Dashboard</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Additional styles for enhanced dashboard */
+    .widget-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 24px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .widget-container:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    
+    .widget-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        padding: 16px 20px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+    }
+    
+    .widget-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0;
+    }
+    
+    .widget-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .widget-body {
+        padding: 20px;
+    }
+    
+    .quick-action-card {
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        height: 100%;
+        text-decoration: none;
+        color: inherit;
+    }
+    
+    .quick-action-card:hover {
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        text-decoration: none;
+        color: inherit;
+    }
+    
+    .quick-action-icon {
+        font-size: 2rem;
+        margin-bottom: 12px;
+        display: block;
+    }
+    
+    .notification-item {
+        padding: 12px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background-color 0.2s ease;
+    }
+    
+    .notification-item:hover {
+        background-color: #f8fafc;
+    }
+    
+    .notification-item:last-child {
+        border-bottom: none;
+    }
+    
+    .notification-priority-urgent {
+        border-left: 4px solid #dc2626;
+    }
+    
+    .notification-priority-high {
+        border-left: 4px solid #ea580c;
+    }
+    
+    .notification-priority-medium {
+        border-left: 4px solid #ca8a04;
+    }
+    
+    .notification-priority-low {
+        border-left: 4px solid #16a34a;
+    }
+    
+    .mini-calendar-day {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .mini-calendar-day:hover {
+        background-color: #e2e8f0;
+    }
+    
+    .mini-calendar-day.today {
+        background-color: var(--primary-color);
+        color: white;
+    }
+    
+    .mini-calendar-day.has-events::after {
+        content: '';
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 6px;
+        height: 6px;
+        background-color: #059669;
+        border-radius: 50%;
+    }
+    
+    .mini-calendar-day.has-deadline::after {
+        background-color: #dc2626;
+    }
+    
+    .analytics-metric {
+        text-align: center;
+        padding: 16px;
+    }
+    
+    .analytics-metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        display: block;
+    }
+    
+    .analytics-metric-label {
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-top: 4px;
+    }
+    
+    .chart-container-enhanced {
+        position: relative;
+        height: 300px;
+        padding: 20px;
+    }
+    
+    .suggestion-item {
+        background: #fef3c7;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .suggestion-item.priority-urgent {
+        background: #fee2e2;
+        border-color: #fca5a5;
+    }
+    
+    .suggestion-item.priority-high {
+        background: #fed7aa;
+        border-color: #fdba74;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Enhanced Dashboard Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-1">
+                    <i class="bi bi-speedometer2 me-2"></i>
+                    Enhanced Dashboard
+                </h1>
+                <p class="text-muted mb-0">
+                    Kontrollo performance-in, menaxho detyrat dhe analizo të dhënat
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm" onclick="refreshDashboard()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>
+                    Rifresko
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="exportDashboard()">
+                    <i class="bi bi-download me-1"></i>
+                    Eksporto
+                </button>
+                <button class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#shortcutsModal">
+                    <i class="bi bi-keyboard me-1"></i>
+                    Shortcuts
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats Row -->
+<div class="row mb-4">
+    {% for stat_key, stat_value in quick_stats.items %}
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card fade-in">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-primary" id="quick-stat-{{ stat_key }}">{{ stat_value }}</div>
+                    <div class="stat-label">{{ stat_key|humanize_field_name }}</div>
+                </div>
+                <div class="stat-icon text-primary">
+                    {% if stat_key == 'total_cases' or stat_key == 'my_cases' %}
+                        <i class="bi bi-folder"></i>
+                    {% elif stat_key == 'active_cases' %}
+                        <i class="bi bi-folder2-open"></i>
+                    {% elif stat_key == 'total_clients' %}
+                        <i class="bi bi-people"></i>
+                    {% elif stat_key == 'pending_deadlines' or stat_key == 'my_deadlines' %}
+                        <i class="bi bi-clock"></i>
+                    {% else %}
+                        <i class="bi bi-graph-up"></i>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Main Dashboard Content -->
+<div class="row">
+    <!-- Left Column - Analytics & Charts -->
+    <div class="col-lg-8">
+        
+        <!-- Quick Actions Widget -->
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-lightning me-2"></i>
+                    Quick Actions
+                </h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleWidget('quick-actions')">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="widget-body" id="quick-actions-widget">
+                <div class="row">
+                    {% for action in quick_actions %}
+                    {% if action.category != 'profile' %}
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ action.url }}" class="quick-action-card text-decoration-none"
+                           {% if action.modal %}data-bs-toggle="modal" data-bs-target="#{{ action.modal }}"{% endif %}
+                           title="{{ action.description }}">
+                            <i class="{{ action.icon }} quick-action-icon text-{{ action.color }}"></i>
+                            <div class="fw-bold">{{ action.title }}</div>
+                            <small class="text-muted">{{ action.description|truncatechars:30 }}</small>
+                            {% if action.shortcut %}
+                            <div class="mt-1">
+                                <span class="badge bg-light text-dark">{{ action.shortcut }}</span>
+                            </div>
+                            {% endif %}
+                        </a>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                
+                <!-- Suggestions -->
+                {% if quick_suggestions %}
+                <hr>
+                <h6 class="mb-3">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Sugjerime
+                </h6>
+                <div id="suggestions-container">
+                    {% for suggestion in quick_suggestions %}
+                    <div class="suggestion-item priority-{{ suggestion.priority }}">
+                        <i class="{{ suggestion.icon }} text-{{ suggestion.color }}"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ suggestion.title }}</div>
+                            <small class="text-muted">{{ suggestion.description }}</small>
+                        </div>
+                        <a href="{{ suggestion.url }}" class="btn btn-sm btn-{{ suggestion.color }}">
+                            Veprë
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Analytics Widgets -->
+        {% if analytics_data %}
+        
+        <!-- Case Performance Widget -->
+        {% if analytics_data.case_performance and not analytics_data.case_performance.error %}
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Case Performance
+                </h5>
+                <div class="widget-actions">
+                    <select class="form-select form-select-sm" onchange="updateWidget('case_performance', this.value)">
+                        <option value="30">30 Ditë</option>
+                        <option value="90">90 Ditë</option>
+                        <option value="365">1 Vit</option>
+                    </select>
+                </div>
+            </div>
+            <div class="widget-body">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value">{{ analytics_data.case_performance.total_cases }}</span>
+                            <div class="analytics-metric-label">Total Raste</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-success">{{ analytics_data.case_performance.resolution_rate }}%</span>
+                            <div class="analytics-metric-label">Success Rate</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-info">{{ analytics_data.case_performance.avg_duration_days }}</span>
+                            <div class="analytics-metric-label">Avg Duration (Days)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-warning">{{ analytics_data.case_performance.closed_cases }}</span>
+                            <div class="analytics-metric-label">Closed Cases</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container-enhanced">
+                    <canvas id="casePerformanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Financial Performance Widget -->
+        {% if analytics_data.financial_performance and not analytics_data.financial_performance.error %}
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-currency-dollar me-2"></i>
+                    Financial Performance
+                </h5>
+            </div>
+            <div class="widget-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-success">{{ analytics_data.financial_performance.total_revenue|floatformat:0 }} ALL</span>
+                            <div class="analytics-metric-label">Total Revenue</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-warning">{{ analytics_data.financial_performance.pending_revenue|floatformat:0 }} ALL</span>
+                            <div class="analytics-metric-label">Pending Revenue</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-primary">{{ analytics_data.financial_performance.collection_rate|floatformat:1 }}%</span>
+                            <div class="analytics-metric-label">Collection Rate</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container-enhanced">
+                    <canvas id="financialChart"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Productivity Widget -->
+        {% if analytics_data.productivity and not analytics_data.productivity.error %}
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-clock me-2"></i>
+                    Productivity Metrics
+                </h5>
+            </div>
+            <div class="widget-body">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value">{{ analytics_data.productivity.total_hours }}</span>
+                            <div class="analytics-metric-label">Total Hours</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-success">{{ analytics_data.productivity.billable_hours }}</span>
+                            <div class="analytics-metric-label">Billable Hours</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-info">{{ analytics_data.productivity.avg_hours_per_case }}</span>
+                            <div class="analytics-metric-label">Avg Hours/Case</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-metric">
+                            <span class="analytics-metric-value text-primary">{{ analytics_data.productivity.daily_trends|length }}</span>
+                            <div class="analytics-metric-label">Active Days</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container-enhanced">
+                    <canvas id="productivityChart"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% endif %}
+    </div>
+
+    <!-- Right Column - Calendar & Notifications -->
+    <div class="col-lg-4">
+        
+        <!-- Notifications Widget -->
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-bell me-2"></i>
+                    Notifications
+                    {% if notifications %}
+                    <span class="badge bg-danger ms-2">{{ notifications|length }}</span>
+                    {% endif %}
+                </h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="refreshNotifications()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="widget-body p-0" style="max-height: 400px; overflow-y: auto;">
+                <div id="notifications-container">
+                    {% for notification in notifications %}
+                    <div class="notification-item notification-priority-{{ notification.priority }}">
+                        <div class="d-flex align-items-start">
+                            <i class="{{ notification.icon }} text-{{ notification.priority }} me-2 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">{{ notification.title }}</div>
+                                <div class="text-muted small">{{ notification.message }}</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    {{ notification.created_at|timesince }} ago
+                                </div>
+                            </div>
+                            <a href="{{ notification.url }}" class="btn btn-sm btn-outline-primary">
+                                View
+                            </a>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-check-circle display-4"></i>
+                        <div>No notifications</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Mini Calendar Widget -->
+        {% if mini_calendar %}
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-calendar3 me-2"></i>
+                    {{ mini_calendar.month_name }}
+                </h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="previousMonth()">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="nextMonth()">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="widget-body">
+                <div id="mini-calendar-container">
+                    <!-- Calendar days header -->
+                    <div class="row text-center mb-2">
+                        <div class="col fw-bold small">Mon</div>
+                        <div class="col fw-bold small">Tue</div>
+                        <div class="col fw-bold small">Wed</div>
+                        <div class="col fw-bold small">Thu</div>
+                        <div class="col fw-bold small">Fri</div>
+                        <div class="col fw-bold small">Sat</div>
+                        <div class="col fw-bold small">Sun</div>
+                    </div>
+                    
+                    <!-- Calendar weeks -->
+                    {% for week in mini_calendar.weeks %}
+                    <div class="row text-center mb-1">
+                        {% for day in week %}
+                        <div class="col p-1">
+                            <div class="mini-calendar-day {% if day.is_today %}today{% endif %} {% if day.has_deadline %}has-deadline{% elif day.event_count > 0 %}has-events{% endif %}"
+                                 data-date="{{ day.date_str }}"
+                                 title="{% if day.event_count > 0 %}{{ day.event_count }} event(s){% endif %}">
+                                {{ day.day }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-3 pt-3 border-top">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Total Events: {{ mini_calendar.total_events }}</small>
+                        <a href="{% url 'event_calendar' %}" class="btn btn-sm btn-primary">
+                            View Full Calendar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Upcoming Events Widget -->
+        {% if upcoming_events %}
+        <div class="widget-container">
+            <div class="widget-header">
+                <h5 class="widget-title">
+                    <i class="bi bi-calendar-event me-2"></i>
+                    Upcoming Events
+                </h5>
+                <div class="widget-actions">
+                    <a href="{% url 'event_create' %}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="widget-body p-0">
+                {% for event in upcoming_events %}
+                <div class="notification-item">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ event.title }}</div>
+                            <div class="text-muted small">{{ event.extendedProps.caseTitle }}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                {{ event.start|date:"D, j M Y H:i" }}
+                            </div>
+                        </div>
+                        {% if event.extendedProps.isDeadline %}
+                        <span class="badge bg-danger">Deadline</span>
+                        {% else %}
+                        <span class="badge bg-primary">Event</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Keyboard Shortcuts Modal -->
+<div class="modal fade" id="shortcutsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-keyboard me-2"></i>
+                    Keyboard Shortcuts
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% for shortcut in keyboard_shortcuts %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span>{{ shortcut.action }}</span>
+                    <kbd>{{ shortcut.key }}</kbd>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables
+let currentDate = new Date();
+
+// Chart initialization
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEnhancedCharts();
+    setupKeyboardShortcuts();
+    
+    // Auto-refresh every 5 minutes
+    setInterval(refreshDashboard, 300000);
+});
+
+function initializeEnhancedCharts() {
+    {% if analytics_data.case_performance and not analytics_data.case_performance.error %}
+    // Case Performance Chart
+    const caseCtx = document.getElementById('casePerformanceChart');
+    if (caseCtx) {
+        new Chart(caseCtx, {
+            type: 'line',
+            data: {
+                labels: {{ analytics_data.case_performance.monthly_trends|safe|default:"[]" }}.map(item => item.month),
+                datasets: [{
+                    label: 'Cases Opened',
+                    data: {{ analytics_data.case_performance.monthly_trends|safe|default:"[]" }}.map(item => item.opened),
+                    borderColor: chartColors.primary,
+                    backgroundColor: chartColors.primary + '20',
+                    tension: 0.4
+                }, {
+                    label: 'Cases Closed',
+                    data: {{ analytics_data.case_performance.monthly_trends|safe|default:"[]" }}.map(item => item.closed),
+                    borderColor: chartColors.success,
+                    backgroundColor: chartColors.success + '20',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                ...defaultChartOptions,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    {% if analytics_data.financial_performance and not analytics_data.financial_performance.error %}
+    // Financial Performance Chart
+    const finCtx = document.getElementById('financialChart');
+    if (finCtx) {
+        new Chart(finCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ analytics_data.financial_performance.monthly_revenue|safe|default:"[]" }}.map(item => item.month),
+                datasets: [{
+                    label: 'Paid Revenue',
+                    data: {{ analytics_data.financial_performance.monthly_revenue|safe|default:"[]" }}.map(item => item.paid),
+                    backgroundColor: chartColors.success
+                }, {
+                    label: 'Pending Revenue', 
+                    data: {{ analytics_data.financial_performance.monthly_revenue|safe|default:"[]" }}.map(item => item.pending),
+                    backgroundColor: chartColors.warning
+                }]
+            },
+            options: {
+                ...defaultChartOptions,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString() + ' ALL';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    {% if analytics_data.productivity and not analytics_data.productivity.error %}
+    // Productivity Chart  
+    const prodCtx = document.getElementById('productivityChart');
+    if (prodCtx) {
+        new Chart(prodCtx, {
+            type: 'line',
+            data: {
+                labels: {{ analytics_data.productivity.daily_trends|safe|default:"[]" }}.map(item => item.date),
+                datasets: [{
+                    label: 'Hours Worked',
+                    data: {{ analytics_data.productivity.daily_trends|safe|default:"[]" }}.map(item => item.hours),
+                    borderColor: chartColors.info,
+                    backgroundColor: chartColors.info + '20',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                ...defaultChartOptions,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + 'h';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+}
+
+function refreshDashboard() {
+    // Show loading indicator
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'spinner-overlay';
+    loadingOverlay.innerHTML = '<div class="spinner-border text-primary" role="status"></div>';
+    document.body.appendChild(loadingOverlay);
+    
+    fetch('/dashboard/api/refresh/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update quick stats
+                Object.keys(data.data).forEach(widget => {
+                    // Update specific widget data
+                    updateWidgetDisplay(widget, data.data[widget]);
+                });
+                
+                // Refresh notifications
+                refreshNotifications();
+                
+                // Show success message
+                showNotification('Dashboard refreshed successfully', 'success');
+            } else {
+                showNotification('Error refreshing dashboard: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            showNotification('Error refreshing dashboard: ' + error.message, 'error');
+        })
+        .finally(() => {
+            document.body.removeChild(loadingOverlay);
+        });
+}
+
+function refreshNotifications() {
+    fetch('/dashboard/api/notifications/')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('notifications-container');
+            if (container && data.notifications) {
+                container.innerHTML = '';
+                
+                if (data.notifications.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-check-circle display-4"></i>
+                            <div>No notifications</div>
+                        </div>
+                    `;
+                } else {
+                    data.notifications.forEach(notification => {
+                        const notifElement = createNotificationElement(notification);
+                        container.appendChild(notifElement);
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing notifications:', error);
+        });
+}
+
+function createNotificationElement(notification) {
+    const div = document.createElement('div');
+    div.className = `notification-item notification-priority-${notification.priority}`;
+    div.innerHTML = `
+        <div class="d-flex align-items-start">
+            <i class="${notification.icon} text-${notification.priority} me-2 mt-1"></i>
+            <div class="flex-grow-1">
+                <div class="fw-bold">${notification.title}</div>
+                <div class="text-muted small">${notification.message}</div>
+                <div class="text-muted" style="font-size: 0.75rem;">
+                    Just now
+                </div>
+            </div>
+            <a href="${notification.url}" class="btn btn-sm btn-outline-primary">
+                View
+            </a>
+        </div>
+    `;
+    return div;
+}
+
+function exportDashboard() {
+    const format = prompt('Export format (json/csv/pdf):', 'json');
+    if (format) {
+        window.location.href = `/dashboard/api/export/?format=${format}`;
+    }
+}
+
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey) {
+            switch(e.key) {
+                case 'n':
+                    e.preventDefault();
+                    {% if user.role in 'admin,lawyer' %}
+                    window.location.href = "{% url 'case_create' %}";
+                    {% endif %}
+                    break;
+                case 'e':
+                    e.preventDefault();
+                    window.location.href = "{% url 'event_create' %}";
+                    break;
+                case 'u':
+                    e.preventDefault();
+                    window.location.href = "{% url 'document_upload' %}";
+                    break;
+                case 'k':
+                    e.preventDefault();
+                    showSearchModal();
+                    break;
+                case '/':
+                    e.preventDefault();
+                    $('#shortcutsModal').modal('show');
+                    break;
+            }
+        }
+    });
+}
+
+function showSearchModal() {
+    // Implement global search modal
+    alert('Search functionality to be implemented');
+}
+
+function showNotification(message, type) {
+    // Simple notification system
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alert);
+    
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.parentNode.removeChild(alert);
+        }
+    }, 5000);
+}
+
+function toggleWidget(widgetId) {
+    const widget = document.getElementById(widgetId + '-widget');
+    if (widget) {
+        widget.style.display = widget.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function updateWidget(widgetName, dateRange) {
+    // Implement widget update functionality
+    console.log('Updating widget:', widgetName, 'with date range:', dateRange);
+}
+
+function previousMonth() {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    updateMiniCalendar();
+}
+
+function nextMonth() {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    updateMiniCalendar();
+}
+
+function updateMiniCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    
+    fetch(`/dashboard/api/mini-calendar/?year=${year}&month=${month}`)
+        .then(response => response.json())
+        .then(data => {
+            // Update mini calendar display
+            document.querySelector('.widget-title').innerHTML = `
+                <i class="bi bi-calendar3 me-2"></i>
+                ${data.month_name}
+            `;
+            // Update calendar grid here
+        })
+        .catch(error => {
+            console.error('Error updating mini calendar:', error);
+        });
+}
+</script>
+{% endblock %}

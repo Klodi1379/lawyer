@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if object %}Edit Event{% else %}Create New Event{% endif %} - Legal Case Manager
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-calendar-event me-2"></i>
+                    {% if object %}Edit Event: {{ object.title }}{% else %}Create New Event{% endif %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <h6>Please correct the following errors:</h6>
+                            {{ form.errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">
+                                <strong>Event Title *</strong>
+                            </label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                                <div class="text-danger small">{{ form.title.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.priority.id_for_label }}" class="form-label">
+                                <strong>Priority</strong>
+                            </label>
+                            {{ form.priority }}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.event_type.id_for_label }}" class="form-label">
+                                <strong>Event Type</strong>
+                            </label>
+                            {{ form.event_type }}
+                            <small class="form-text text-muted">
+                                <a href="{% url 'admin:cases_eventtype_add' %}" target="_blank" class="text-decoration-none">
+                                    <i class="bi bi-plus-circle"></i> Add new type
+                                </a>
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.location.id_for_label }}" class="form-label">
+                                <strong>Location</strong>
+                            </label>
+                            {{ form.location }}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.starts_at.id_for_label }}" class="form-label">
+                                <strong>Start Date & Time *</strong>
+                            </label>
+                            {{ form.starts_at }}
+                            {% if form.starts_at.errors %}
+                                <div class="text-danger small">{{ form.starts_at.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.ends_at.id_for_label }}" class="form-label">
+                                <strong>End Date & Time</strong>
+                            </label>
+                            {{ form.ends_at }}
+                            {% if form.ends_at.errors %}
+                                <div class="text-danger small">{{ form.ends_at.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.is_all_day }}
+                                <label class="form-check-label" for="{{ form.is_all_day.id_for_label }}">
+                                    All Day Event
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.is_deadline }}
+                                <label class="form-check-label" for="{{ form.is_deadline.id_for_label }}">
+                                    This is a Deadline
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">
+                            <strong>Description</strong>
+                        </label>
+                        {{ form.description }}
+                        <small class="form-text text-muted">
+                            Provide details about the event, agenda, or requirements.
+                        </small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.attendees.id_for_label }}" class="form-label">
+                                <strong>Attendees</strong>
+                            </label>
+                            {{ form.attendees }}
+                            <small class="form-text text-muted">Hold Ctrl to select multiple attendees</small>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.reminder_minutes.id_for_label }}" class="form-label">
+                                <strong>Reminder (minutes before)</strong>
+                            </label>
+                            {{ form.reminder_minutes }}
+                            <small class="form-text text-muted">0 = no reminder</small>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% if object %}{% url 'event_detail' object.pk %}{% else %}{% url 'event_calendar' %}{% endif %}" 
+                           class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-info">
+                            <i class="bi bi-save me-2"></i>
+                            {% if object %}Update Event{% else %}Create Event{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {% if object %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">Event Information</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Case:</strong> {{ object.case.title }} ({{ object.case.uid }})</p>
+                        <p><strong>Created by:</strong> {{ object.created_by.get_full_name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Created:</strong> {{ object.created_at|date:"M d, Y H:i" }}</p>
+                        <p><strong>Last Updated:</strong> {{ object.updated_at|date:"M d, Y H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Auto-populate end time when start time changes
+document.getElementById('id_starts_at').addEventListener('change', function() {
+    const startTime = new Date(this.value);
+    const endTimeField = document.getElementById('id_ends_at');
+    
+    if (!endTimeField.value && startTime) {
+        // Add 1 hour to start time as default
+        const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+        const endTimeString = endTime.toISOString().slice(0, 16);
+        endTimeField.value = endTimeString;
+    }
+});
+
+// Handle all-day toggle
+document.getElementById('id_is_all_day').addEventListener('change', function() {
+    const startField = document.getElementById('id_starts_at');
+    const endField = document.getElementById('id_ends_at');
+    
+    if (this.checked) {
+        // Convert to date-only format
+        if (startField.value) {
+            startField.type = 'date';
+        }
+        if (endField.value) {
+            endField.type = 'date';
+        }
+    } else {
+        // Convert back to datetime format
+        startField.type = 'datetime-local';
+        endField.type = 'datetime-local';
+    }
+});
+</script>
+{% endblock %}

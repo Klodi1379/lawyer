@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Expense Details - {{ expense.description|truncatechars:30 }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-receipt-cutoff me-2"></i>Expense Details
+            </h1>
+            <p class="text-muted mb-0">{{ expense.description }}</p>
+        </div>
+        <div>
+            <a href="{% url 'expenses_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Back to Expenses
+            </a>
+            {% if not expense.is_billed %}
+            <a href="{% url 'expense_edit' expense.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-2"></i>Edit
+            </a>
+            {% endif %}
+            {% if expense.receipt %}
+            <a href="{{ expense.receipt.url }}" target="_blank" class="btn btn-outline-info">
+                <i class="bi bi-download me-2"></i>Download Receipt
+            </a>
+            {% endif %}
+            {% if request.user.role in 'admin,lawyer' and not expense.is_billed %}
+            <button class="btn btn-success" onclick="approveExpense({{ expense.id }})">
+                <i class="bi bi-check-circle me-2"></i>Approve & Reimburse
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Expense Information -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-info-circle me-2"></i>Expense Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Basic Details</h6>
+                            <div class="mb-3">
+                                <strong>Description:</strong><br>
+                                {{ expense.description }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Amount:</strong><br>
+                                <span class="h5 text-success">{{ expense.currency.symbol|default:"€" }}{{ expense.amount|floatformat:2 }}</span>
+                            </div>
+                            <div class="mb-3">
+                                <strong>Date:</strong><br>
+                                {{ expense.expense_date|date:"F d, Y" }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Category:</strong><br>
+                                <span class="badge bg-primary">{{ expense.category.name }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Case & Billing</h6>
+                            <div class="mb-3">
+                                <strong>Associated Case:</strong><br>
+                                {% if expense.case %}
+                                    <a href="{% url 'case_detail' expense.case.id %}" class="text-decoration-none">
+                                        {{ expense.case.title }}
+                                    </a>
+                                    <br><small class="text-muted">Client: {{ expense.case.client.full_name }}</small>
+                                {% else %}
+                                    <span class="text-muted">General Expense</span>
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Submitted by:</strong><br>
+                                {{ expense.user.get_full_name|default:expense.user.username }}
+                                <br><small class="text-muted">{{ expense.created_at|date:"M d, Y H:i" }}</small>
+                            </div>
+                            <div class="mb-3">
+                                <strong>Billable Status:</strong><br>
+                                {% if expense.is_billable %}
+                                    <span class="badge bg-success">Billable to Client</span>
+                                    {% if expense.billable_amount %}
+                                        <br><small class="text-muted">Billable Amount: {{ expense.currency.symbol|default:"€" }}{{ expense.billable_amount|floatformat:2 }}</small>
+                                        {% if expense.markup_percentage > 0 %}
+                                            <br><small class="text-info">Markup: {{ expense.markup_percentage }}%</small>
+                                        {% endif %}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-secondary">Internal Expense</span>
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Reimbursement Status:</strong><br>
+                                {% if expense.is_billed %}
+                                    <span class="badge bg-info">Reimbursed</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Pending Reimbursement</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if expense.category.description %}
+                    <div class="alert alert-info">
+                        <strong>Category Info:</strong> {{ expense.category.description }}
+                        {% if expense.category.default_markup_percentage > 0 %}
+                            <br><small>Default markup for this category: {{ expense.category.default_markup_percentage }}%</small>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Receipt/Document -->
+            {% if expense.receipt %}
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-paperclip me-2"></i>Receipt/Document
+                    </h6>
+                </div>
+                <div class="card-body text-center">
+                    {% if expense.receipt.name|slice:"-4:"|lower == '.pdf' %}
+                        <i class="bi bi-file-earmark-pdf text-danger" style="font-size: 4rem;"></i>
+                        <h5 class="mt-3">PDF Document</h5>
+                    {% elif expense.receipt.name|slice:"-4:"|lower in '.jpg,.png,jpeg' %}
+                        <img src="{{ expense.receipt.url }}" alt="Receipt" class="img-fluid" style="max-height: 400px; border-radius: 8px;">
+                    {% else %}
+                        <i class="bi bi-file-earmark text-primary" style="font-size: 4rem;"></i>
+                        <h5 class="mt-3">Document Attached</h5>
+                    {% endif %}
+                    <div class="mt-3">
+                        <a href="{{ expense.receipt.url }}" target="_blank" class="btn btn-outline-primary">
+                            <i class="bi bi-eye me-2"></i>View Full Size
+                        </a>
+                        <a href="{{ expense.receipt.url }}" download class="btn btn-outline-secondary ms-2">
+                            <i class="bi bi-download me-2"></i>Download
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-lightning me-2"></i>Quick Actions
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if not expense.is_billed %}
+                            {% if request.user.role in 'admin,lawyer' %}
+                            <button class="btn btn-success" onclick="approveExpense({{ expense.id }})">
+                                <i class="bi bi-check-circle me-2"></i>Approve & Reimburse
+                            </button>
+                            {% endif %}
+                            <a href="{% url 'expense_edit' expense.id %}" class="btn btn-outline-primary">
+                                <i class="bi bi-pencil me-2"></i>Edit Expense
+                            </a>
+                        {% endif %}
+                        {% if expense.receipt %}
+                        <a href="{{ expense.receipt.url }}" target="_blank" class="btn btn-outline-info">
+                            <i class="bi bi-eye me-2"></i>View Receipt
+                        </a>
+                        {% endif %}
+                        <button class="btn btn-outline-secondary" onclick="duplicateExpense({{ expense.id }})">
+                            <i class="bi bi-files me-2"></i>Duplicate Expense
+                        </button>
+                        {% if expense.is_billable and expense.case %}
+                        <a href="{% url 'generate_invoice' %}?case={{ expense.case.id }}&include_expense={{ expense.id }}" class="btn btn-outline-warning">
+                            <i class="bi bi-receipt me-2"></i>Add to Invoice
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expense Timeline -->
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-clock-history me-2"></i>Timeline
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Expense Created</h6>
+                                <small class="text-muted">{{ expense.created_at|date:"M d, Y H:i" }}</small>
+                                <p class="small mb-0">by {{ expense.user.get_full_name|default:expense.user.username }}</p>
+                            </div>
+                        </div>
+                        {% if expense.is_billed %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Approved & Reimbursed</h6>
+                                <small class="text-muted">Status updated</small>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-warning"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Pending Approval</h6>
+                                <small class="text-muted">Awaiting review</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Approve expense
+function approveExpense(expenseId) {
+    if (confirm('Approve and mark this expense as reimbursed?')) {
+        fetch(`/billing/expenses/${expenseId}/reimburse/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Expense approved and marked as reimbursed!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+
+// Duplicate expense
+function duplicateExpense(expenseId) {
+    if (confirm('Create a new expense based on this one?')) {
+        window.location.href = `/billing/expenses/create/?duplicate=${expenseId}`;
+    }
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+</script>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    height: 100%;
+    width: 2px;
+    background: #e3e6f0;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -22px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+
+.timeline-content {
+    background: #f8f9fc;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e3e6f0;
+}
+
+.timeline-content h6 {
+    color: #5a5c69;
+    margin-bottom: 5px;
+}
+
+.card-header {
+    background-color: #f8f9fc;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.badge {
+    font-size: 0.8em;
+    padding: 0.5em 0.75em;
+}
+
+.btn-group .btn {
+    margin-right: 5px;
+}
+</style>
+{% endblock %}

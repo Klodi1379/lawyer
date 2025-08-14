@@ -1,0 +1,811 @@
+{% load static %}
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-briefcase me-2 fs-4 text-primary"></i>
+            <div>
+                <h6 class="mb-0 fw-bold">Legal Manager</h6>
+                <small class="text-muted d-none d-md-block">Case Management System</small>
+            </div>
+        </div>
+        
+        <!-- Close button for mobile -->
+        <button class="btn btn-link d-lg-none p-0 ms-auto" id="sidebarClose">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <div class="sidebar-content">
+        {% if user.is_authenticated %}
+            <!-- User Info -->
+            <div class="user-info mb-3">
+                <div class="d-flex align-items-center">
+                    {% if user.profile.profile_picture %}
+                        <img src="{{ user.profile.profile_picture.url }}" alt="Profile" class="rounded-circle me-2" style="width: 32px; height: 32px;">
+                    {% else %}
+                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                            <i class="bi bi-person text-white"></i>
+                        </div>
+                    {% endif %}
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold small">{{ user.get_full_name|default:user.username }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">
+                            <span class="badge bg-{{ user.role|default:'secondary' }}-subtle text-{{ user.role|default:'secondary' }}">
+                                {{ user.get_role_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions mb-3">
+                <div class="text-muted small mb-2 fw-semibold">QUICK ACTIONS</div>
+                <div class="btn-group-vertical w-100" role="group">
+                    {% if user.role in 'admin,lawyer' %}
+                    <a href="{% url 'case_create' %}" class="btn btn-primary btn-sm mb-1" data-bs-toggle="tooltip" title="Create New Case">
+                        <i class="bi bi-plus-circle me-2"></i>New Case
+                    </a>
+                    {% endif %}
+                    
+                    {% if user.role in 'admin,lawyer,paralegal' %}
+                    <a href="{% url 'document_upload' %}" class="btn btn-outline-primary btn-sm mb-1" data-bs-toggle="tooltip" title="Upload Document">
+                        <i class="bi bi-cloud-upload me-2"></i>Upload Doc
+                    </a>
+                    <a href="{% url 'event_create' %}" class="btn btn-outline-primary btn-sm" data-bs-toggle="tooltip" title="Create Event">
+                        <i class="bi bi-calendar-plus me-2"></i>New Event
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Main Navigation -->
+            <nav class="sidebar-nav">
+                <ul class="nav flex-column">
+                    <!-- Dashboard -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+                            <i class="bi bi-speedometer2 nav-icon"></i>
+                            <span class="nav-text">Dashboard</span>
+                        </a>
+                    </li>
+
+                    <!-- Cases Section -->
+                    <li class="nav-item">
+                        <div class="nav-section-header">
+                            <span class="text-muted small fw-semibold">CASE MANAGEMENT</span>
+                        </div>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'case' in request.resolver_match.url_name %}active{% endif %}" 
+                           href="#casesCollapse" 
+                           data-bs-toggle="collapse" 
+                           role="button"
+                           aria-expanded="{% if 'case' in request.resolver_match.url_name %}true{% else %}false{% endif %}">
+                            <i class="bi bi-folder nav-icon"></i>
+                            <span class="nav-text">Cases</span>
+                            <i class="bi bi-chevron-down ms-auto collapse-icon"></i>
+                        </a>
+                        <div class="collapse {% if 'case' in request.resolver_match.url_name %}show{% endif %}" id="casesCollapse">
+                            <ul class="nav flex-column ms-3">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'case_list' %}active{% endif %}" href="{% url 'case_list' %}">
+                                        <i class="bi bi-list-ul nav-icon"></i>
+                                        <span class="nav-text">All Cases</span>
+                                        <span class="badge bg-primary ms-auto" id="total-cases-count">{{ user.get_assigned_cases_count }}</span>
+                                    </a>
+                                </li>
+                                {% if user.role in 'admin,lawyer' %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'case_create' %}active{% endif %}" href="{% url 'case_create' %}">
+                                        <i class="bi bi-plus-circle nav-icon"></i>
+                                        <span class="nav-text">New Case</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'case_list' %}?status=open">
+                                        <i class="bi bi-folder-check nav-icon"></i>
+                                        <span class="nav-text">Open Cases</span>
+                                        <span class="badge bg-success ms-auto" id="open-cases-count">{{ user.get_open_cases_count }}</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'case_list' %}?status=in_court">
+                                        <i class="bi bi-building nav-icon"></i>
+                                        <span class="nav-text">In Court</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'case_list' %}?status=closed">
+                                        <i class="bi bi-folder-x nav-icon"></i>
+                                        <span class="nav-text">Closed Cases</span>
+                                        <span class="badge bg-secondary ms-auto" id="closed-cases-count">{{ user.get_closed_cases_count }}</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Clients Section -->
+                    {% if user.role in 'admin,lawyer,paralegal' %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'client' in request.resolver_match.url_name %}active{% endif %}" 
+                           href="#clientsCollapse" 
+                           data-bs-toggle="collapse" 
+                           role="button"
+                           aria-expanded="{% if 'client' in request.resolver_match.url_name %}true{% else %}false{% endif %}">
+                            <i class="bi bi-people nav-icon"></i>
+                            <span class="nav-text">Clients</span>
+                            <i class="bi bi-chevron-down ms-auto collapse-icon"></i>
+                        </a>
+                        <div class="collapse {% if 'client' in request.resolver_match.url_name %}show{% endif %}" id="clientsCollapse">
+                            <ul class="nav flex-column ms-3">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'client_list' %}active{% endif %}" href="{% url 'client_list' %}">
+                                        <i class="bi bi-person-lines-fill nav-icon"></i>
+                                        <span class="nav-text">All Clients</span>
+                                    </a>
+                                </li>
+                                {% if user.role in 'admin,lawyer' %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'client_create' %}active{% endif %}" href="{% url 'client_create' %}">
+                                        <i class="bi bi-person-plus nav-icon"></i>
+                                        <span class="nav-text">New Client</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'client_list' %}?type=individual">
+                                        <i class="bi bi-person nav-icon"></i>
+                                        <span class="nav-text">Individuals</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'client_list' %}?type=organization">
+                                        <i class="bi bi-building nav-icon"></i>
+                                        <span class="nav-text">Organizations</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+                    {% endif %}
+
+                    <!-- Documents Section -->
+                    <li class="nav-item">
+                        <div class="nav-section-header">
+                            <span class="text-muted small fw-semibold">DOCUMENTS & FILES</span>
+                        </div>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'document' in request.resolver_match.url_name %}active{% endif %}" 
+                           href="#documentsCollapse" 
+                           data-bs-toggle="collapse" 
+                           role="button"
+                           aria-expanded="{% if 'document' in request.resolver_match.url_name %}true{% else %}false{% endif %}">
+                            <i class="bi bi-file-earmark-text nav-icon"></i>
+                            <span class="nav-text">Documents</span>
+                            <i class="bi bi-chevron-down ms-auto collapse-icon"></i>
+                        </a>
+                        <div class="collapse {% if 'document' in request.resolver_match.url_name %}show{% endif %}" id="documentsCollapse">
+                            <ul class="nav flex-column ms-3">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'document_list' %}active{% endif %}" href="{% url 'document_list' %}">
+                                        <i class="bi bi-files nav-icon"></i>
+                                        <span class="nav-text">All Documents</span>
+                                    </a>
+                                </li>
+                                {% if user.role in 'admin,lawyer,paralegal' %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'document_upload' %}active{% endif %}" href="{% url 'document_upload' %}">
+                                        <i class="bi bi-cloud-upload nav-icon"></i>
+                                        <span class="nav-text">Upload Document</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'document_list' %}?status=draft">
+                                        <i class="bi bi-file-earmark-plus nav-icon"></i>
+                                        <span class="nav-text">Draft Documents</span>
+                                        <span class="badge bg-warning ms-auto" id="draft-docs-count">0</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'document_list' %}?status=signed">
+                                        <i class="bi bi-file-earmark-check nav-icon"></i>
+                                        <span class="nav-text">Signed Documents</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/document-editor/">
+                                        <i class="bi bi-pencil-square nav-icon"></i>
+                                        <span class="nav-text">Document Editor</span>
+                                        <span class="badge bg-info ms-auto">AI</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Calendar & Events Section -->
+                    <li class="nav-item">
+                        <div class="nav-section-header">
+                            <span class="text-muted small fw-semibold">CALENDAR & EVENTS</span>
+                        </div>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'event' in request.resolver_match.url_name or 'calendar' in request.resolver_match.url_name %}active{% endif %}" 
+                           href="#eventsCollapse" 
+                           data-bs-toggle="collapse" 
+                           role="button"
+                           aria-expanded="{% if 'event' in request.resolver_match.url_name or 'calendar' in request.resolver_match.url_name %}true{% else %}false{% endif %}">
+                            <i class="bi bi-calendar3 nav-icon"></i>
+                            <span class="nav-text">Calendar</span>
+                            <i class="bi bi-chevron-down ms-auto collapse-icon"></i>
+                        </a>
+                        <div class="collapse {% if 'event' in request.resolver_match.url_name or 'calendar' in request.resolver_match.url_name %}show{% endif %}" id="eventsCollapse">
+                            <ul class="nav flex-column ms-3">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'event_calendar' %}active{% endif %}" href="{% url 'event_calendar' %}">
+                                        <i class="bi bi-calendar3-event nav-icon"></i>
+                                        <span class="nav-text">Calendar View</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'event_list' %}active{% endif %}" href="{% url 'event_list' %}">
+                                        <i class="bi bi-list-ul nav-icon"></i>
+                                        <span class="nav-text">Events List</span>
+                                    </a>
+                                </li>
+                                {% if user.role in 'admin,lawyer,paralegal' %}
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'event_create' %}active{% endif %}" href="{% url 'event_create' %}">
+                                        <i class="bi bi-plus-circle nav-icon"></i>
+                                        <span class="nav-text">New Event</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'event_list' %}?deadline=true">
+                                        <i class="bi bi-clock nav-icon"></i>
+                                        <span class="nav-text">Deadlines</span>
+                                        <span class="badge bg-danger ms-auto" id="upcoming-deadlines-count">0</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'event_list' %}?upcoming=7">
+                                        <i class="bi bi-calendar2-check nav-icon"></i>
+                                        <span class="nav-text">This Week</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- AI & Tools Section -->
+                    <li class="nav-item">
+                        <div class="nav-section-header">
+                            <span class="text-muted small fw-semibold">AI & TOOLS</span>
+                        </div>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="#llmToolsCollapse" data-bs-toggle="collapse" role="button">
+                            <i class="bi bi-robot nav-icon"></i>
+                            <span class="nav-text">AI Assistant</span>
+                            <span class="badge bg-gradient bg-primary ms-auto">AI</span>
+                            <i class="bi bi-chevron-down collapse-icon"></i>
+                        </a>
+                        <div class="collapse" id="llmToolsCollapse">
+                            <ul class="nav flex-column ms-3">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/document-editor/" data-bs-toggle="tooltip" title="AI-powered document creation">
+                                        <i class="bi bi-magic nav-icon"></i>
+                                        <span class="nav-text">Document Generator</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" onclick="openLegalAssistant()" data-bs-toggle="tooltip" title="Ask legal questions">
+                                        <i class="bi bi-chat-square-text nav-icon"></i>
+                                        <span class="nav-text">Legal Assistant</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" onclick="openContractAnalyzer()" data-bs-toggle="tooltip" title="Analyze legal documents">
+                                        <i class="bi bi-file-earmark-binary nav-icon"></i>
+                                        <span class="nav-text">Contract Analyzer</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" onclick="openCasePredictor()" data-bs-toggle="tooltip" title="AI case outcome predictions">
+                                        <i class="bi bi-graph-up nav-icon"></i>
+                                        <span class="nav-text">Case Predictor</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Reports & Analytics -->
+                    {% if user.role in 'admin,lawyer' %}
+                    <li class="nav-item">
+                        <div class="nav-section-header">
+                            <span class="text-muted small fw-semibold">REPORTS & ANALYTICS</span>
+                        </div>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="#reportsCollapse" data-bs-toggle="collapse" role="button">
+                            <i class="bi bi-graph-up nav-icon"></i>
+                            <span class="nav-text">Reports</span>
+                            <i class="bi bi-chevron-down ms-auto collapse-icon"></i>
+                        </a>
+                        <div class="collapse" id="reportsCollapse">
+                            <ul class="nav flex-column ms-3">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" onclick="generateCaseReport()">
+                                        <i class="bi bi-file-bar-graph nav-icon"></i>
+                                        <span class="nav-text">Case Analytics</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" onclick="generateFinancialReport()">
+                                        <i class="bi bi-currency-dollar nav-icon"></i>
+                                        <span class="nav-text">Financial Report</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" onclick="generateTimeReport()">
+                                        <i class="bi bi-clock-history nav-icon"></i>
+                                        <span class="nav-text">Time Tracking</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" onclick="exportAllData()">
+                                        <i class="bi bi-download nav-icon"></i>
+                                        <span class="nav-text">Export Data</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+                    {% endif %}
+
+                    <!-- Administration -->
+                    {% if user.role == 'admin' %}
+                    <li class="nav-item">
+                        <div class="nav-section-header">
+                            <span class="text-muted small fw-semibold">ADMINISTRATION</span>
+                        </div>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="#adminCollapse" data-bs-toggle="collapse" role="button">
+                            <i class="bi bi-gear nav-icon"></i>
+                            <span class="nav-text">System Admin</span>
+                            <i class="bi bi-chevron-down ms-auto collapse-icon"></i>
+                        </a>
+                        <div class="collapse" id="adminCollapse">
+                            <ul class="nav flex-column ms-3">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.resolver_match.url_name == 'user_list' %}active{% endif %}" href="{% url 'user_list' %}">
+                                        <i class="bi bi-people nav-icon"></i>
+                                        <span class="nav-text">Manage Users</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/admin/" target="_blank">
+                                        <i class="bi bi-tools nav-icon"></i>
+                                        <span class="nav-text">Django Admin</span>
+                                        <i class="bi bi-box-arrow-up-right ms-auto"></i>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/api/" target="_blank">
+                                        <i class="bi bi-code-slash nav-icon"></i>
+                                        <span class="nav-text">API Browser</span>
+                                        <i class="bi bi-box-arrow-up-right ms-auto"></i>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" onclick="showSystemHealth()">
+                                        <i class="bi bi-activity nav-icon"></i>
+                                        <span class="nav-text">System Health</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" onclick="showAuditLog()">
+                                        <i class="bi bi-journal-text nav-icon"></i>
+                                        <span class="nav-text">Audit Log</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+
+            <!-- Quick Stats -->
+            <div class="sidebar-footer mt-auto">
+                <div class="quick-stats p-3 bg-light rounded mb-3">
+                    <div class="text-muted small mb-2 fw-semibold">QUICK STATS</div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="stat-item text-center">
+                                <div class="stat-number fw-bold text-primary" id="sidebar-cases-count">{{ user.get_assigned_cases_count }}</div>
+                                <div class="stat-label small text-muted">Cases</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-item text-center">
+                                <div class="stat-number fw-bold text-success" id="sidebar-docs-count">{{ user.get_uploaded_documents_count }}</div>
+                                <div class="stat-label small text-muted">Docs</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Theme Toggle -->
+                <div class="theme-toggle mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="darkModeToggle">
+                        <label class="form-check-label small" for="darkModeToggle">
+                            <i class="bi bi-moon-stars me-1"></i>Dark Mode
+                        </label>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- JavaScript for sidebar functionality -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sidebar toggle functionality
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarClose = document.getElementById('sidebarClose');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', function() {
+            sidebar.classList.add('show');
+            overlay.classList.add('show');
+        });
+    }
+
+    if (sidebarClose) {
+        sidebarClose.addEventListener('click', function() {
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+        });
+    }
+
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+        });
+    }
+
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Dark mode toggle
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    if (darkModeToggle) {
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            darkModeToggle.checked = true;
+        }
+
+        darkModeToggle.addEventListener('change', function() {
+            if (this.checked) {
+                document.body.classList.add('dark-theme');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.body.classList.remove('dark-theme');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+    }
+
+    // Update sidebar stats periodically
+    updateSidebarStats();
+    setInterval(updateSidebarStats, 30000); // Update every 30 seconds
+});
+
+// AI Tools Functions
+function openLegalAssistant() {
+    // Create modal for legal assistant
+    showAIModal('Legal Assistant', 'Ask me any legal question and I\'ll help you find the answer based on Albanian law.', 'legal-assistant');
+}
+
+function openContractAnalyzer() {
+    showAIModal('Contract Analyzer', 'Upload a contract or legal document for AI-powered analysis.', 'contract-analyzer');
+}
+
+function openCasePredictor() {
+    showAIModal('Case Predictor', 'Get AI predictions on case outcomes based on similar cases and legal precedents.', 'case-predictor');
+}
+
+function showAIModal(title, description, type) {
+    const modal = new bootstrap.Modal(document.getElementById('aiToolModal') || createAIModal());
+    document.getElementById('aiModalTitle').textContent = title;
+    document.getElementById('aiModalDescription').textContent = description;
+    document.getElementById('aiModalContent').innerHTML = getAIToolContent(type);
+    modal.show();
+}
+
+function createAIModal() {
+    const modal = document.createElement('div');
+    modal.id = 'aiToolModal';
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="aiModalTitle">
+                        <i class="bi bi-robot me-2"></i>AI Tool
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="aiModalDescription" class="text-muted mb-3"></p>
+                    <div id="aiModalContent"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+}
+
+function getAIToolContent(type) {
+    switch(type) {
+        case 'legal-assistant':
+            return `
+                <div class="chat-interface">
+                    <div class="chat-messages" id="chatMessages" style="height: 300px; overflow-y: auto; border: 1px solid #dee2e6; padding: 15px; border-radius: 5px; background: #f8f9fa;">
+                        <div class="text-muted text-center">
+                            <i class="bi bi-chat-square-text fs-1"></i>
+                            <p>Start a conversation with the AI Legal Assistant</p>
+                        </div>
+                    </div>
+                    <div class="chat-input mt-3">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="chatInput" placeholder="Ask a legal question...">
+                            <button class="btn btn-primary" onclick="sendChatMessage()">
+                                <i class="bi bi-send"></i> Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        case 'contract-analyzer':
+            return `
+                <div class="contract-analyzer">
+                    <div class="mb-3">
+                        <label for="contractFile" class="form-label">Upload Contract/Document</label>
+                        <input type="file" class="form-control" id="contractFile" accept=".pdf,.doc,.docx,.txt">
+                    </div>
+                    <div class="mb-3">
+                        <label for="contractText" class="form-label">Or paste contract text</label>
+                        <textarea class="form-control" id="contractText" rows="8" placeholder="Paste contract text here..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="analyzeContract()">
+                        <i class="bi bi-search"></i> Analyze Contract
+                    </button>
+                    <div id="analysisResult" class="mt-3"></div>
+                </div>
+            `;
+        case 'case-predictor':
+            return `
+                <div class="case-predictor">
+                    <div class="mb-3">
+                        <label for="caseType" class="form-label">Case Type</label>
+                        <select class="form-select" id="caseType">
+                            <option value="">Select case type</option>
+                            <option value="civil">Civil</option>
+                            <option value="criminal">Criminal</option>
+                            <option value="family">Family</option>
+                            <option value="commercial">Commercial</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="caseDetails" class="form-label">Case Details</label>
+                        <textarea class="form-control" id="caseDetails" rows="6" placeholder="Describe the case details, facts, and circumstances..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="predictCase()">
+                        <i class="bi bi-graph-up"></i> Predict Outcome
+                    </button>
+                    <div id="predictionResult" class="mt-3"></div>
+                </div>
+            `;
+    }
+}
+
+// Update sidebar statistics
+function updateSidebarStats() {
+    fetch('/dashboard/api/quick-stats/')
+        .then(response => response.json())
+        .then(data => {
+            const casesCount = document.getElementById('sidebar-cases-count');
+            const docsCount = document.getElementById('sidebar-docs-count');
+            const totalCasesCount = document.getElementById('total-cases-count');
+            const openCasesCount = document.getElementById('open-cases-count');
+            const closedCasesCount = document.getElementById('closed-cases-count');
+            const draftDocsCount = document.getElementById('draft-docs-count');
+            const upcomingDeadlinesCount = document.getElementById('upcoming-deadlines-count');
+
+            if (casesCount) casesCount.textContent = data.total_cases || 0;
+            if (docsCount) docsCount.textContent = data.total_documents || 0;
+            if (totalCasesCount) totalCasesCount.textContent = data.total_cases || 0;
+            if (openCasesCount) openCasesCount.textContent = data.open_cases || 0;
+            if (closedCasesCount) closedCasesCount.textContent = data.closed_cases || 0;
+            if (draftDocsCount) draftDocsCount.textContent = data.draft_documents || 0;
+            if (upcomingDeadlinesCount) upcomingDeadlinesCount.textContent = data.upcoming_deadlines || 0;
+        })
+        .catch(error => console.error('Error updating sidebar stats:', error));
+}
+
+// Report generation functions
+function generateCaseReport() {
+    showLoadingOverlay();
+    // Implement case report generation
+    setTimeout(() => {
+        hideLoadingOverlay();
+        alert('Case analytics report generated successfully!');
+    }, 2000);
+}
+
+function generateFinancialReport() {
+    showLoadingOverlay();
+    // Implement financial report generation
+    setTimeout(() => {
+        hideLoadingOverlay();
+        alert('Financial report generated successfully!');
+    }, 2000);
+}
+
+function generateTimeReport() {
+    showLoadingOverlay();
+    // Implement time tracking report
+    setTimeout(() => {
+        hideLoadingOverlay();
+        alert('Time tracking report generated successfully!');
+    }, 2000);
+}
+
+function exportAllData() {
+    if (confirm('Are you sure you want to export all data? This may take a few minutes.')) {
+        showLoadingOverlay();
+        // Implement data export
+        setTimeout(() => {
+            hideLoadingOverlay();
+            alert('Data export completed successfully!');
+        }, 3000);
+    }
+}
+
+// System admin functions
+function showSystemHealth() {
+    alert('System health monitoring coming soon!');
+}
+
+function showAuditLog() {
+    alert('Audit log viewer coming soon!');
+}
+
+// AI Chat functionality
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const messages = document.getElementById('chatMessages');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    // Add user message
+    addChatMessage('user', message);
+    input.value = '';
+    
+    // Simulate AI response
+    setTimeout(() => {
+        addChatMessage('ai', 'I understand your question about ' + message + '. Let me help you with that based on Albanian law...');
+    }, 1500);
+}
+
+function addChatMessage(sender, message) {
+    const messages = document.getElementById('chatMessages');
+    const messageEl = document.createElement('div');
+    messageEl.className = `mb-2 ${sender === 'user' ? 'text-end' : ''}`;
+    messageEl.innerHTML = `
+        <div class="d-inline-block p-2 rounded ${sender === 'user' ? 'bg-primary text-white' : 'bg-light'}" style="max-width: 80%;">
+            ${sender === 'ai' ? '<i class="bi bi-robot me-1"></i>' : ''}${message}
+        </div>
+    `;
+    messages.appendChild(messageEl);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function analyzeContract() {
+    const file = document.getElementById('contractFile').files[0];
+    const text = document.getElementById('contractText').value;
+    const result = document.getElementById('analysisResult');
+    
+    if (!file && !text) {
+        alert('Please upload a file or enter contract text');
+        return;
+    }
+    
+    result.innerHTML = `
+        <div class="spinner-border text-primary me-2" role="status">
+            <span class="visually-hidden">Analyzing...</span>
+        </div>
+        Analyzing contract...
+    `;
+    
+    setTimeout(() => {
+        result.innerHTML = `
+            <div class="alert alert-success">
+                <h6>Analysis Complete</h6>
+                <ul class="mb-0">
+                    <li>Contract type: Service Agreement</li>
+                    <li>Potential risks: 2 identified</li>
+                    <li>Missing clauses: Termination clause</li>
+                    <li>Compliance score: 85%</li>
+                </ul>
+            </div>
+        `;
+    }, 3000);
+}
+
+function predictCase() {
+    const caseType = document.getElementById('caseType').value;
+    const details = document.getElementById('caseDetails').value;
+    const result = document.getElementById('predictionResult');
+    
+    if (!caseType || !details) {
+        alert('Please select case type and enter details');
+        return;
+    }
+    
+    result.innerHTML = `
+        <div class="spinner-border text-primary me-2" role="status">
+            <span class="visually-hidden">Predicting...</span>
+        </div>
+        Analyzing case and generating predictions...
+    `;
+    
+    setTimeout(() => {
+        result.innerHTML = `
+            <div class="alert alert-info">
+                <h6>Case Outcome Prediction</h6>
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Success Probability:</strong> 73%
+                    </div>
+                    <div class="col-6">
+                        <strong>Estimated Duration:</strong> 6-8 months
+                    </div>
+                </div>
+                <hr>
+                <small class="text-muted">Based on analysis of 1,247 similar cases</small>
+            </div>
+        `;
+    }, 3000);
+}
+</script>

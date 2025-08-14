@@ -1,0 +1,855 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AI Document Editor - Legal Case Manager{% endblock %}
+
+{% block extra_css %}
+<!-- Quill Editor CSS -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<!-- Highlight.js for code syntax highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+<style>
+    .document-editor {
+        height: calc(100vh - 200px);
+        min-height: 500px;
+    }
+    
+    .editor-toolbar {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 15px;
+        border-radius: 0.375rem 0.375rem 0 0;
+    }
+    
+    .editor-content {
+        height: calc(100% - 120px);
+        border: none;
+        border-radius: 0 0 0.375rem 0.375rem;
+    }
+    
+    .ai-sidebar {
+        height: calc(100vh - 200px);
+        min-height: 500px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 0.375rem;
+        overflow-y: auto;
+    }
+    
+    .ai-chat {
+        height: 300px;
+        overflow-y: auto;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 0.375rem;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .chat-message {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 0.375rem;
+        max-width: 90%;
+    }
+    
+    .chat-message.user {
+        background: rgba(255, 255, 255, 0.2);
+        margin-left: auto;
+        text-align: right;
+    }
+    
+    .chat-message.ai {
+        background: rgba(255, 255, 255, 0.1);
+        margin-right: auto;
+    }
+    
+    .template-card {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 0.375rem;
+        padding: 15px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .template-card:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+    
+    .progress-indicator {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+    
+    .status-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1060;
+        max-width: 300px;
+    }
+    
+    .floating-toolbar {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1055;
+    }
+    
+    .document-stats {
+        font-size: 0.875rem;
+        color: rgba(255, 255, 255, 0.8);
+        padding: 10px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .version-history {
+        max-height: 200px;
+        overflow-y: auto;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 0.375rem;
+        padding: 10px;
+    }
+    
+    .version-item {
+        padding: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+    
+    .version-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .version-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="bi bi-magic text-primary me-2"></i>
+                AI Document Editor
+            </h2>
+            <p class="text-muted mb-0">Create legal documents with AI assistance</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" onclick="saveDocument()">
+                <i class="bi bi-save me-1"></i>Save
+            </button>
+            <button class="btn btn-outline-secondary" onclick="exportDocument()">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+            <button class="btn btn-primary" onclick="shareDocument()">
+                <i class="bi bi-share me-1"></i>Share
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Editor -->
+        <div class="col-lg-8">
+            <div class="card document-editor">
+                <!-- Editor Toolbar -->
+                <div class="editor-toolbar">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="input-group" style="width: 300px;">
+                                <span class="input-group-text">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                </span>
+                                <input type="text" class="form-control" id="documentTitle" 
+                                       placeholder="Document Title" value="Untitled Document">
+                            </div>
+                            
+                            <select class="form-select" id="documentType" style="width: 200px;">
+                                <option value="contract">Contract</option>
+                                <option value="letter">Letter</option>
+                                <option value="motion">Motion</option>
+                                <option value="brief">Brief</option>
+                                <option value="complaint">Complaint</option>
+                                <option value="memo">Legal Memo</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                        
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success" id="saveStatus">
+                                <i class="bi bi-check-circle me-1"></i>Saved
+                            </span>
+                            <span class="badge bg-info" id="wordCount">0 words</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Editor Content -->
+                <div id="editor" class="editor-content"></div>
+            </div>
+        </div>
+
+        <!-- AI Assistant Sidebar -->
+        <div class="col-lg-4">
+            <div class="ai-sidebar">
+                <div class="p-3">
+                    <h5 class="mb-3">
+                        <i class="bi bi-robot me-2"></i>
+                        AI Legal Assistant
+                    </h5>
+                    
+                    <!-- Progress Indicator -->
+                    <div class="progress-indicator">
+                        <div class="progress-bar" id="aiProgress"></div>
+                    </div>
+                    
+                    <!-- AI Chat -->
+                    <div class="ai-chat" id="aiChat">
+                        <div class="chat-message ai">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-robot me-2 mt-1"></i>
+                                <div>
+                                    <strong>AI Assistant</strong>
+                                    <p class="mb-0 mt-1">Hello! I'm here to help you create legal documents. What type of document would you like to create today?</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chat Input -->
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="aiInput" 
+                               placeholder="Ask AI assistant..." 
+                               onkeypress="if(event.key==='Enter') sendMessage()">
+                        <button class="btn btn-light" onclick="sendMessage()">
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Quick Actions -->
+                    <div class="mb-3">
+                        <h6 class="mb-2">Quick Actions</h6>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-light btn-sm" onclick="generateFromTemplate()">
+                                <i class="bi bi-lightning me-1"></i>Generate from Template
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" onclick="improveWriting()">
+                                <i class="bi bi-magic me-1"></i>Improve Writing
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" onclick="checkLegalCompliance()">
+                                <i class="bi bi-shield-check me-1"></i>Check Compliance
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" onclick="suggestClauses()">
+                                <i class="bi bi-plus-circle me-1"></i>Suggest Clauses
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Document Templates -->
+                    <div class="mb-3">
+                        <h6 class="mb-2">Document Templates</h6>
+                        <div class="template-card" onclick="loadTemplate('contract')">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-file-earmark-text me-2"></i>
+                                <div>
+                                    <div class="fw-bold">Service Contract</div>
+                                    <small>Standard service agreement template</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="template-card" onclick="loadTemplate('nda')">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-file-earmark-lock me-2"></i>
+                                <div>
+                                    <div class="fw-bold">NDA Agreement</div>
+                                    <small>Non-disclosure agreement</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="template-card" onclick="loadTemplate('demand-letter')">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-file-earmark-arrow-up me-2"></i>
+                                <div>
+                                    <div class="fw-bold">Demand Letter</div>
+                                    <small>Formal demand letter template</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="template-card" onclick="loadTemplate('motion')">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-file-earmark-ruled me-2"></i>
+                                <div>
+                                    <div class="fw-bold">Court Motion</div>
+                                    <small>Legal motion template</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Version History -->
+                    <div class="mb-3">
+                        <h6 class="mb-2">Version History</h6>
+                        <div class="version-history" id="versionHistory">
+                            <div class="version-item" onclick="loadVersion('current')">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold">Current Version</div>
+                                        <small>Saved 2 minutes ago</small>
+                                    </div>
+                                    <span class="badge bg-success">Latest</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Document Stats -->
+                    <div class="document-stats">
+                        <div class="row g-2 text-center">
+                            <div class="col-6">
+                                <div class="fw-bold" id="statsWords">0</div>
+                                <small>Words</small>
+                            </div>
+                            <div class="col-6">
+                                <div class="fw-bold" id="statsChars">0</div>
+                                <small>Characters</small>
+                            </div>
+                            <div class="col-6">
+                                <div class="fw-bold" id="statsParagraphs">0</div>
+                                <small>Paragraphs</small>
+                            </div>
+                            <div class="col-6">
+                                <div class="fw-bold" id="statsReadTime">0</div>
+                                <small>Min read</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Indicator -->
+<div class="status-indicator" id="statusIndicator" style="display: none;">
+    <div class="alert alert-info alert-dismissible">
+        <div id="statusMessage"></div>
+        <button type="button" class="btn-close" onclick="hideStatus()"></button>
+    </div>
+</div>
+
+<!-- Floating Toolbar -->
+<div class="floating-toolbar">
+    <div class="btn-group-vertical">
+        <button class="btn btn-primary btn-sm" onclick="askAI()" data-bs-toggle="tooltip" title="Ask AI">
+            <i class="bi bi-robot"></i>
+        </button>
+        <button class="btn btn-info btn-sm" onclick="spellCheck()" data-bs-toggle="tooltip" title="Spell Check">
+            <i class="bi bi-spell-check"></i>
+        </button>
+        <button class="btn btn-warning btn-sm" onclick="addComment()" data-bs-toggle="tooltip" title="Add Comment">
+            <i class="bi bi-chat-square"></i>
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleFocus()" data-bs-toggle="tooltip" title="Focus Mode">
+            <i class="bi bi-eye"></i>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Quill Editor JS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<!-- Highlight.js for code syntax highlighting -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<script>
+// Initialize Quill editor
+let quill;
+let currentDocumentId = null;
+let isGenerating = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Quill editor with custom toolbar
+    quill = new Quill('#editor', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                [{ 'font': [] }],
+                [{ 'size': ['small', false, 'large', 'huge'] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'color': [] }, { 'background': [] }],
+                [{ 'script': 'sub'}, { 'script': 'super' }],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'indent': '-1'}, { 'indent': '+1' }],
+                [{ 'align': [] }],
+                ['blockquote', 'code-block'],
+                ['link', 'image', 'video'],
+                ['clean']
+            ],
+            syntax: true
+        },
+        placeholder: 'Start writing your legal document here, or use AI assistance to generate content...'
+    });
+
+    // Listen for content changes
+    quill.on('text-change', function(delta, oldDelta, source) {
+        updateDocumentStats();
+        updateSaveStatus('unsaved');
+        autoSave();
+    });
+
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Auto-save every 30 seconds
+    setInterval(autoSave, 30000);
+    
+    // Initialize document stats
+    updateDocumentStats();
+});
+
+// Send message to AI
+function sendMessage() {
+    const input = document.getElementById('aiInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    // Add user message to chat
+    addChatMessage('user', message);
+    input.value = '';
+    
+    // Show AI is typing
+    showAITyping();
+    
+    // Send to AI API
+    callAIAPI(message)
+        .then(response => {
+            hideAITyping();
+            addChatMessage('ai', response);
+        })
+        .catch(error => {
+            hideAITyping();
+            addChatMessage('ai', 'I apologize, but I encountered an error. Please try again.');
+            console.error('AI API Error:', error);
+        });
+}
+
+// Add message to chat
+function addChatMessage(sender, message) {
+    const chat = document.getElementById('aiChat');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${sender}`;
+    
+    if (sender === 'ai') {
+        messageDiv.innerHTML = `
+            <div class="d-flex align-items-start">
+                <i class="bi bi-robot me-2 mt-1"></i>
+                <div>
+                    <strong>AI Assistant</strong>
+                    <p class="mb-0 mt-1">${message}</p>
+                </div>
+            </div>
+        `;
+    } else {
+        messageDiv.innerHTML = `
+            <div class="d-flex align-items-start justify-content-end">
+                <div class="text-end">
+                    <strong>You</strong>
+                    <p class="mb-0 mt-1">${message}</p>
+                </div>
+                <i class="bi bi-person-circle ms-2 mt-1"></i>
+            </div>
+        `;
+    }
+    
+    chat.appendChild(messageDiv);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+// Show AI typing indicator
+function showAITyping() {
+    const chat = document.getElementById('aiChat');
+    const typingDiv = document.createElement('div');
+    typingDiv.id = 'aiTyping';
+    typingDiv.className = 'chat-message ai';
+    typingDiv.innerHTML = `
+        <div class="d-flex align-items-start">
+            <i class="bi bi-robot me-2 mt-1"></i>
+            <div>
+                <strong>AI Assistant</strong>
+                <p class="mb-0 mt-1">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Thinking...
+                </p>
+            </div>
+        </div>
+    `;
+    chat.appendChild(typingDiv);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+// Hide AI typing indicator
+function hideAITyping() {
+    const typing = document.getElementById('aiTyping');
+    if (typing) {
+        typing.remove();
+    }
+}
+
+// Call AI API
+async function callAIAPI(message) {
+    const response = await fetch('/api/llm/chat/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            message: message,
+            context: quill.getText(),
+            document_type: document.getElementById('documentType').value
+        })
+    });
+    
+    if (!response.ok) {
+        throw new Error('API request failed');
+    }
+    
+    const data = await response.json();
+    return data.response;
+}
+
+// Generate content from template
+function generateFromTemplate() {
+    const docType = document.getElementById('documentType').value;
+    showStatus('Generating content from template...', 'info');
+    
+    callAIAPI(`Generate a ${docType} template based on Albanian law`)
+        .then(response => {
+            quill.setText('');
+            quill.clipboard.dangerouslyPasteHTML(0, response);
+            showStatus('Template generated successfully!', 'success');
+        })
+        .catch(error => {
+            showStatus('Error generating template', 'error');
+        });
+}
+
+// Improve writing
+function improveWriting() {
+    const content = quill.getText();
+    if (!content.trim()) {
+        showStatus('Please write some content first', 'warning');
+        return;
+    }
+    
+    showStatus('Improving writing...', 'info');
+    
+    callAIAPI(`Improve this legal document writing: ${content}`)
+        .then(response => {
+            quill.setText('');
+            quill.clipboard.dangerouslyPasteHTML(0, response);
+            showStatus('Writing improved!', 'success');
+        })
+        .catch(error => {
+            showStatus('Error improving writing', 'error');
+        });
+}
+
+// Check legal compliance
+function checkLegalCompliance() {
+    const content = quill.getText();
+    if (!content.trim()) {
+        showStatus('Please write some content first', 'warning');
+        return;
+    }
+    
+    showStatus('Checking legal compliance...', 'info');
+    
+    callAIAPI(`Check this document for legal compliance with Albanian law: ${content}`)
+        .then(response => {
+            addChatMessage('ai', `Legal Compliance Review: ${response}`);
+            showStatus('Compliance check completed', 'success');
+        })
+        .catch(error => {
+            showStatus('Error checking compliance', 'error');
+        });
+}
+
+// Suggest clauses
+function suggestClauses() {
+    const docType = document.getElementById('documentType').value;
+    
+    callAIAPI(`Suggest important clauses for a ${docType} under Albanian law`)
+        .then(response => {
+            addChatMessage('ai', `Suggested clauses for ${docType}: ${response}`);
+        })
+        .catch(error => {
+            showStatus('Error suggesting clauses', 'error');
+        });
+}
+
+// Load template
+function loadTemplate(templateType) {
+    showStatus(`Loading ${templateType} template...`, 'info');
+    
+    callAIAPI(`Generate a complete ${templateType} template for Albanian law`)
+        .then(response => {
+            quill.setText('');
+            quill.clipboard.dangerouslyPasteHTML(0, response);
+            document.getElementById('documentTitle').value = `${templateType.charAt(0).toUpperCase() + templateType.slice(1)} Document`;
+            showStatus('Template loaded successfully!', 'success');
+            updateDocumentStats();
+        })
+        .catch(error => {
+            showStatus('Error loading template', 'error');
+        });
+}
+
+// Update document statistics
+function updateDocumentStats() {
+    const text = quill.getText();
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const chars = text.length;
+    const paragraphs = text.split('\n').filter(p => p.trim()).length;
+    const readTime = Math.ceil(words / 200); // Average reading speed
+    
+    document.getElementById('wordCount').textContent = `${words} words`;
+    document.getElementById('statsWords').textContent = words;
+    document.getElementById('statsChars').textContent = chars;
+    document.getElementById('statsParagraphs').textContent = paragraphs;
+    document.getElementById('statsReadTime').textContent = readTime;
+}
+
+// Auto-save functionality
+function autoSave() {
+    if (quill.getText().trim()) {
+        saveDocument(true);
+    }
+}
+
+// Save document
+function saveDocument(isAutoSave = false) {
+    const title = document.getElementById('documentTitle').value;
+    const content = quill.getContents();
+    const type = document.getElementById('documentType').value;
+    
+    fetch('/api/documents/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            title: title,
+            content: JSON.stringify(content),
+            document_type: type,
+            is_auto_save: isAutoSave
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        currentDocumentId = data.id;
+        updateSaveStatus('saved');
+        if (!isAutoSave) {
+            showStatus('Document saved successfully!', 'success');
+        }
+        addVersionToHistory(data.version);
+    })
+    .catch(error => {
+        updateSaveStatus('error');
+        if (!isAutoSave) {
+            showStatus('Error saving document', 'error');
+        }
+    });
+}
+
+// Export document
+function exportDocument() {
+    const format = prompt('Export format (pdf, docx, html):', 'pdf');
+    if (!format) return;
+    
+    showStatus('Exporting document...', 'info');
+    
+    fetch(`/api/documents/${currentDocumentId}/export/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ format: format })
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${document.getElementById('documentTitle').value}.${format}`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showStatus('Document exported successfully!', 'success');
+    })
+    .catch(error => {
+        showStatus('Error exporting document', 'error');
+    });
+}
+
+// Share document
+function shareDocument() {
+    if (!currentDocumentId) {
+        showStatus('Please save the document first', 'warning');
+        return;
+    }
+    
+    const shareUrl = `${window.location.origin}/documents/${currentDocumentId}/`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+        showStatus('Share link copied to clipboard!', 'success');
+    });
+}
+
+// Update save status
+function updateSaveStatus(status) {
+    const saveStatus = document.getElementById('saveStatus');
+    
+    switch(status) {
+        case 'saved':
+            saveStatus.innerHTML = '<i class="bi bi-check-circle me-1"></i>Saved';
+            saveStatus.className = 'badge bg-success';
+            break;
+        case 'unsaved':
+            saveStatus.innerHTML = '<i class="bi bi-clock me-1"></i>Unsaved';
+            saveStatus.className = 'badge bg-warning';
+            break;
+        case 'saving':
+            saveStatus.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Saving...';
+            saveStatus.className = 'badge bg-info';
+            break;
+        case 'error':
+            saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Error';
+            saveStatus.className = 'badge bg-danger';
+            break;
+    }
+}
+
+// Show status message
+function showStatus(message, type) {
+    const indicator = document.getElementById('statusIndicator');
+    const messageEl = document.getElementById('statusMessage');
+    
+    messageEl.textContent = message;
+    indicator.className = `status-indicator alert alert-${type} alert-dismissible`;
+    indicator.style.display = 'block';
+    
+    setTimeout(hideStatus, 5000);
+}
+
+// Hide status message
+function hideStatus() {
+    document.getElementById('statusIndicator').style.display = 'none';
+}
+
+// Add version to history
+function addVersionToHistory(version) {
+    const history = document.getElementById('versionHistory');
+    const versionDiv = document.createElement('div');
+    versionDiv.className = 'version-item';
+    versionDiv.onclick = () => loadVersion(version.id);
+    versionDiv.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <div class="fw-bold">Version ${version.number}</div>
+                <small>Saved ${version.created_at}</small>
+            </div>
+            <span class="badge bg-secondary">${version.type}</span>
+        </div>
+    `;
+    history.insertBefore(versionDiv, history.firstChild);
+}
+
+// Floating toolbar functions
+function askAI() {
+    document.getElementById('aiInput').focus();
+}
+
+function spellCheck() {
+    showStatus('Spell check coming soon!', 'info');
+}
+
+function addComment() {
+    const selection = quill.getSelection();
+    if (selection && selection.length > 0) {
+        const comment = prompt('Add comment:');
+        if (comment) {
+            // Add comment functionality
+            showStatus('Comment added!', 'success');
+        }
+    } else {
+        showStatus('Please select text to comment on', 'warning');
+    }
+}
+
+function toggleFocus() {
+    document.body.classList.toggle('focus-mode');
+}
+
+// Utility function to get CSRF cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+        switch(e.key) {
+            case 's':
+                e.preventDefault();
+                saveDocument();
+                break;
+            case 'k':
+                e.preventDefault();
+                document.getElementById('aiInput').focus();
+                break;
+            case 'e':
+                e.preventDefault();
+                exportDocument();
+                break;
+        }
+    }
+});
+</script>
+{% endblock %}

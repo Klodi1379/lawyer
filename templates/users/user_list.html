@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block title %}Users - Legal Case Manager{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-people"></i> User Management</h2>
+    <a href="{% url 'register' %}" class="btn btn-primary">
+        <i class="bi bi-person-plus"></i> Add New User
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="row align-items-center">
+            <div class="col">
+                <h5 class="mb-0">All Users</h5>
+            </div>
+            <div class="col-auto">
+                <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" placeholder="Search users..." id="userSearch">
+                    <button class="btn btn-outline-secondary" type="button">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if users %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>2FA</th>
+                        <th>Last Login</th>
+                        <th>Joined</th>
+                        <th width="150">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user_item in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if user_item.profile.profile_picture %}
+                                    <img src="{{ user_item.profile.profile_picture.url }}" alt="Profile" 
+                                         class="rounded-circle me-2" width="32" height="32" style="object-fit: cover;">
+                                {% else %}
+                                    <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center me-2"
+                                         style="width: 32px; height: 32px;">
+                                        <i class="bi bi-person text-white"></i>
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <div class="fw-bold">{{ user_item.get_full_name|default:user_item.username }}</div>
+                                    <small class="text-muted">@{{ user_item.username }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ user_item.email|default:"<em>Not provided</em>" }}</td>
+                        <td>
+                            <span class="badge bg-{% if user_item.role == 'admin' %}danger{% elif user_item.role == 'lawyer' %}primary{% elif user_item.role == 'paralegal' %}info{% else %}secondary{% endif %}">
+                                {{ user_item.get_role_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if user_item.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user_item.is_2fa_enabled %}
+                                <i class="bi bi-shield-check text-success" title="2FA Enabled"></i>
+                            {% else %}
+                                <i class="bi bi-shield-x text-warning" title="2FA Disabled"></i>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user_item.last_login %}
+                                {{ user_item.last_login|date:"M d, Y" }}
+                                <br><small class="text-muted">{{ user_item.last_login|time:"H:i" }}</small>
+                            {% else %}
+                                <span class="text-muted">Never</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user_item.date_joined|date:"M d, Y" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'user_update' user_item.pk %}" class="btn btn-outline-primary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% if user_item != user %}
+                                <button type="button" class="btn btn-outline-danger" title="Deactivate" 
+                                        onclick="confirmDeactivate('{{ user_item.username }}', {{ user_item.pk }})">
+                                    <i class="bi bi-person-x"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-people fs-1 text-muted"></i>
+            <h5 class="text-muted mt-3">No users found</h5>
+            <p class="text-muted">Start by adding your first user to the system.</p>
+            <a href="{% url 'register' %}" class="btn btn-primary">
+                <i class="bi bi-person-plus"></i> Add First User
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- User Statistics -->
+{% if users %}
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-primary">{{ users|length }}</h5>
+                <p class="card-text">Total Users</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-success">{{ active_users_count|default:0 }}</h5>
+                <p class="card-text">Active Users</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-info">{{ lawyers_count|default:0 }}</h5>
+                <p class="card-text">Lawyers</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-warning">{{ tfa_enabled_count|default:0 }}</h5>
+                <p class="card-text">2FA Enabled</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Search functionality
+document.getElementById('userSearch').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const tableRows = document.querySelectorAll('tbody tr');
+    
+    tableRows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+});
+
+// Confirm deactivation
+function confirmDeactivate(username, userId) {
+    if (confirm(`Are you sure you want to deactivate user "${username}"?`)) {
+        // Here you would make an AJAX request to deactivate the user
+        alert('User deactivation functionality would be implemented here.');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1336 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+{% if document %}
+    Editimi: {{ document.title }}
+{% else %}
+    Dokument i Ri
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.bubble.css" rel="stylesheet">
+<link href="{% static 'document_editor/css/editor.css' %}" rel="stylesheet">
+<style>
+    .editor-container {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #f8f9fa;
+    }
+    
+    .editor-header {
+        background: white;
+        border-bottom: 1px solid #e9ecef;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    
+    .editor-main {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+    
+    .editor-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: white;
+        margin: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .editor-toolbar {
+        border-bottom: 1px solid #e9ecef;
+        padding: 10px 15px;
+    }
+    
+    .editor-area {
+        flex: 1;
+        overflow: auto;
+    }
+    
+    .sidebar {
+        width: 350px;
+        background: white;
+        border-left: 1px solid #e9ecef;
+        display: flex;
+        flex-direction: column;
+        margin: 10px 10px 10px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar-tabs {
+        display: flex;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .sidebar-tab {
+        flex: 1;
+        padding: 12px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        color: #6c757d;
+        transition: all 0.2s;
+    }
+    
+    .sidebar-tab.active {
+        color: #007bff;
+        border-bottom: 2px solid #007bff;
+    }
+    
+    .sidebar-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 15px;
+    }
+    
+    .document-title-input {
+        font-size: 1.25rem;
+        font-weight: 600;
+        border: none;
+        background: transparent;
+        padding: 5px 0;
+        width: 300px;
+        color: #212529;
+    }
+    
+    .document-title-input:focus {
+        outline: none;
+        border-bottom: 2px solid #007bff;
+    }
+    
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.9rem;
+    }
+    
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #28a745;
+    }
+    
+    .status-dot.locked {
+        background: #dc3545;
+    }
+    
+    .status-dot.saving {
+        background: #ffc107;
+    }
+    
+    .comment-item {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        border-left: 3px solid #007bff;
+    }
+    
+    .comment-author {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 5px;
+    }
+    
+    .comment-content {
+        font-size: 0.9rem;
+        line-height: 1.4;
+        margin-bottom: 8px;
+    }
+    
+    .comment-time {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .version-item {
+        padding: 10px;
+        border-bottom: 1px solid #e9ecef;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .version-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .version-number {
+        font-weight: 600;
+        color: #007bff;
+    }
+    
+    .version-summary {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+    
+    .llm-panel {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .llm-button {
+        width: 100%;
+        margin-bottom: 8px;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .llm-button:hover {
+        background: #e9ecef;
+        border-color: #007bff;
+    }
+    
+    .llm-button i {
+        color: #007bff;
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    
+    .loading-content {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        text-align: center;
+        max-width: 400px;
+    }
+    
+    .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #007bff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 15px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .quill-editor {
+        height: 400px;
+    }
+    
+    .toolbar-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .btn-sm {
+        padding: 5px 10px;
+        font-size: 0.875rem;
+    }
+    
+    .alert-dismissible {
+        position: relative;
+        padding-right: 4rem;
+    }
+    
+    .close {
+        position: absolute;
+        top: 0;
+        right: 0;
+        padding: 0.75rem 1.25rem;
+        color: inherit;
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="editor-container">
+    <!-- Header -->
+    <div class="editor-header">
+        <div class="d-flex align-items-center">
+            <input type="text" 
+                   class="document-title-input" 
+                   id="documentTitle"
+                   placeholder="Titulli i Dokumentit"
+                   value="{% if document %}{{ document.title }}{% endif %}">
+            <div class="status-indicator ms-3">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">I Ruajtur</span>
+            </div>
+        </div>
+        
+        <div class="d-flex align-items-center gap-3">
+            <div class="toolbar-group">
+                <button class="btn btn-sm btn-outline-primary" id="saveBtn">
+                    <i class="bi bi-save"></i> Ruaj
+                </button>
+                <button class="btn btn-sm btn-outline-info" id="versionBtn">
+                    <i class="bi bi-clock-history"></i> Version i Ri
+                </button>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                            type="button" 
+                            data-bs-toggle="dropdown">
+                        <i class="bi bi-download"></i> Eksporto
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" data-format="pdf">PDF</a></li>
+                        <li><a class="dropdown-item" href="#" data-format="docx">Word</a></li>
+                        <li><a class="dropdown-item" href="#" data-format="html">HTML</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            {% if document %}
+            <div class="text-muted small">
+                v{{ document.version_number }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Editor Area -->
+    <div class="editor-main">
+        <!-- Editor Content -->
+        <div class="editor-content">
+            <!-- Toolbar -->
+            <div class="editor-toolbar">
+                <div id="toolbar">
+                    <!-- Quill toolbar will be inserted here -->
+                </div>
+            </div>
+            
+            <!-- Editor Area -->
+            <div class="editor-area">
+                <div id="editor" class="quill-editor">
+                    {% if document %}{{ document.content_html|safe }}{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Sidebar Tabs -->
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab active" data-tab="comments">
+                    <i class="bi bi-chat-left-text"></i> Komente
+                </button>
+                <button class="sidebar-tab" data-tab="versions">
+                    <i class="bi bi-clock-history"></i> Versione
+                </button>
+                <button class="sidebar-tab" data-tab="llm">
+                    <i class="bi bi-robot"></i> LLM
+                </button>
+                <button class="sidebar-tab" data-tab="info">
+                    <i class="bi bi-info-circle"></i> Info
+                </button>
+            </div>
+
+            <!-- Sidebar Content -->
+            <div class="sidebar-content">
+                <!-- Comments Tab -->
+                <div class="tab-content active" id="comments-tab">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Komente</h6>
+                        <button class="btn btn-sm btn-primary" id="addCommentBtn">
+                            <i class="bi bi-plus"></i> Shto
+                        </button>
+                    </div>
+                    <div id="commentsList">
+                        <!-- Comments will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Versions Tab -->
+                <div class="tab-content" id="versions-tab">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Historiku i Versioneve</h6>
+                        <button class="btn btn-sm btn-primary" id="createVersionBtn">
+                            <i class="bi bi-plus"></i> Version i Ri
+                        </button>
+                    </div>
+                    <div id="versionsList">
+                        <!-- Versions will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- LLM Tab -->
+                <div class="tab-content" id="llm-tab">
+                    <h6 class="mb-3">Asistenta LLM</h6>
+                    
+                    <div class="llm-panel">
+                        <h6 class="h6 mb-3">Gjenerimi i Përmbajtjes</h6>
+                        <button class="llm-button" id="llmGenerateBtn">
+                            <i class="bi bi-magic"></i>
+                            <div>
+                                <div>Gjenero Përmbajtje</div>
+                                <small class="text-muted">Krijo tekst të ri me LLM</small>
+                            </div>
+                        </button>
+                        <button class="llm-button" id="llmSuggestBtn">
+                            <i class="bi bi-lightbulb"></i>
+                            <div>
+                                <div>Sugjerime</div>
+                                <small class="text-muted">Merr sugjerime për përmirësim</small>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="llm-panel">
+                        <h6 class="h6 mb-3">Analiza dhe Rishikimi</h6>
+                        <button class="llm-button" id="llmReviewBtn">
+                            <i class="bi bi-search"></i>
+                            <div>
+                                <div>Rishiko Dokumentin</div>
+                                <small class="text-muted">Analizo për gabime dhe përmirësime</small>
+                            </div>
+                        </button>
+                        <button class="llm-button" id="llmTranslateBtn">
+                            <i class="bi bi-translate"></i>
+                            <div>
+                                <div>Përkthe</div>
+                                <small class="text-muted">Përkthe në gjuhë të tjera</small>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Info Tab -->
+                <div class="tab-content" id="info-tab">
+                    <h6 class="mb-3">Informacioni i Dokumentit</h6>
+                    <div id="documentStats">
+                        <!-- Document statistics will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<!-- Comment Modal -->
+<div class="modal fade" id="commentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Shto Koment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Teksti i Zgjedhur:</label>
+                    <div class="bg-light p-2 rounded" id="selectedTextDisplay"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="commentText" class="form-label">Komenti:</label>
+                    <textarea class="form-control" id="commentText" rows="4" 
+                              placeholder="Shkruani komentin tuaj..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anulo</button>
+                <button type="button" class="btn btn-primary" id="saveCommentBtn">Ruaj Komentin</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LLM Modal -->
+<div class="modal fade" id="llmModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="llmModalTitle">LLM Assistant</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="llmOptions" class="mb-3">
+                    <!-- LLM-specific options will be populated here -->
+                </div>
+                <div id="llmResults" class="d-none">
+                    <h6>Rezultati:</h6>
+                    <div class="bg-light p-3 rounded" id="llmResultContent"></div>
+                    <div class="mt-3">
+                        <button class="btn btn-success" id="applyLLMResult">Apliko Ndryshimet</button>
+                        <button class="btn btn-outline-secondary" id="copyLLMResult">Kopjo</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Mbyll</button>
+                <button type="button" class="btn btn-primary" id="executeLLMBtn">Ekzekuto</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+        <div class="spinner"></div>
+        <div id="loadingText">Duke procesuar...</div>
+    </div>
+</div>
+
+<!-- Alerts Container -->
+<div id="alertsContainer" style="position: fixed; top: 20px; right: 20px; z-index: 1050; width: 350px;">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+<script>
+// Global variables
+let quill;
+let documentData = {{ document_json|safe }};
+let editorConfig = {{ editor_config|safe }};
+let autoSaveInterval;
+let lastSavedContent = '';
+
+// Document ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEditor();
+    initializeSidebar();
+    setupEventListeners();
+    if (documentData.id) {
+        loadDocument(documentData.id);
+    }
+    startAutoSave();
+});
+
+// Initialize Quill editor
+function initializeEditor() {
+    const toolbarOptions = [
+        ['bold', 'italic', 'underline', 'strike'],
+        ['blockquote', 'code-block'],
+        [{ 'header': 1 }, { 'header': 2 }],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'script': 'sub'}, { 'script': 'super' }],
+        [{ 'indent': '-1'}, { 'indent': '+1' }],
+        [{ 'direction': 'rtl' }],
+        [{ 'size': ['small', false, 'large', 'huge'] }],
+        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'font': [] }],
+        [{ 'align': [] }],
+        ['clean'],
+        ['link', 'image']
+    ];
+
+    quill = new Quill('#editor', {
+        modules: {
+            toolbar: {
+                container: toolbarOptions,
+                handlers: {
+                    // Custom handlers
+                }
+            }
+        },
+        placeholder: 'Filloni të shkruani dokumentin tuaj...',
+        theme: 'snow'
+    });
+
+    // Listen for text changes
+    quill.on('text-change', function(delta, oldDelta, source) {
+        if (source === 'user') {
+            markAsChanged();
+            scheduleAutoSave();
+        }
+    });
+
+    // Listen for selection changes (for comments)
+    quill.on('selection-change', function(range, oldRange, source) {
+        if (range && range.length > 0) {
+            // Text is selected
+            showCommentButton();
+        } else {
+            hideCommentButton();
+        }
+    });
+}
+
+// Initialize sidebar functionality
+function initializeSidebar() {
+    // Tab switching
+    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            switchSidebarTab(this.dataset.tab);
+        });
+    });
+}
+
+// Setup event listeners
+function setupEventListeners() {
+    // Save button
+    document.getElementById('saveBtn').addEventListener('click', saveDocument);
+    
+    // Title change
+    document.getElementById('documentTitle').addEventListener('input', function() {
+        markAsChanged();
+    });
+    
+    // Version button
+    document.getElementById('versionBtn').addEventListener('click', createNewVersion);
+    
+    // Export buttons
+    document.querySelectorAll('[data-format]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            exportDocument(this.dataset.format);
+        });
+    });
+    
+    // LLM buttons
+    document.getElementById('llmGenerateBtn').addEventListener('click', () => showLLMModal('generate'));
+    document.getElementById('llmSuggestBtn').addEventListener('click', () => showLLMModal('suggest'));
+    document.getElementById('llmReviewBtn').addEventListener('click', () => showLLMModal('review'));
+    document.getElementById('llmTranslateBtn').addEventListener('click', () => showLLMModal('translate'));
+    
+    // Comment button
+    document.getElementById('addCommentBtn').addEventListener('click', showCommentModal);
+    document.getElementById('saveCommentBtn').addEventListener('click', saveComment);
+    
+    // LLM modal buttons
+    document.getElementById('executeLLMBtn').addEventListener('click', executeLLMAction);
+    document.getElementById('applyLLMResult').addEventListener('click', applyLLMResult);
+    document.getElementById('copyLLMResult').addEventListener('click', copyLLMResult);
+}
+
+// Load document data
+async function loadDocument(documentId) {
+    showLoading('Duke ngarkuar dokumentin...');
+    
+    try {
+        const response = await fetch(`/documents/api/documents/${documentId}/load/`);
+        const data = await response.json();
+        
+        if (data.success) {
+            documentData = data.document;
+            
+            // Update UI
+            document.getElementById('documentTitle').value = documentData.title;
+            quill.setContents(quill.clipboard.convert(documentData.content_html || documentData.content));
+            
+            // Load sidebar content
+            loadComments(data.comments);
+            loadVersions(data.versions);
+            loadDocumentStats(data.statistics);
+            
+            lastSavedContent = quill.getContents();
+            markAsSaved();
+        } else {
+            showAlert('error', data.error || 'Gabim në ngarkimin e dokumentit');
+        }
+    } catch (error) {
+        console.error('Error loading document:', error);
+        showAlert('error', 'Gabim në ngarkimin e dokumentit');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Save document
+async function saveDocument(autoSave = false) {
+    if (!documentData.id && !autoSave) {
+        // Need to create new document first
+        await createNewDocument();
+        return;
+    }
+    
+    if (!hasChanges() && autoSave) {
+        return; // No changes to save
+    }
+    
+    const content = quill.getText();
+    const contentHtml = quill.root.innerHTML;
+    const title = document.getElementById('documentTitle').value.trim();
+    
+    try {
+        const response = await fetch(`/documents/api/documents/${documentData.id}/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                content: content,
+                content_html: contentHtml,
+                title: title,
+                auto_save: autoSave
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            lastSavedContent = quill.getContents();
+            documentData.version_number = data.version_number;
+            markAsSaved();
+            
+            if (!autoSave) {
+                showAlert('success', data.message);
+            }
+        } else {
+            showAlert('error', data.error || 'Gabim në ruajtjen e dokumentit');
+        }
+    } catch (error) {
+        console.error('Error saving document:', error);
+        if (!autoSave) {
+            showAlert('error', 'Gabim në ruajtjen e dokumentit');
+        }
+    }
+}
+
+// Auto save functionality
+function startAutoSave() {
+    if (editorConfig.auto_save_interval) {
+        autoSaveInterval = setInterval(() => {
+            if (documentData.id && hasChanges()) {
+                saveDocument(true);
+            }
+        }, editorConfig.auto_save_interval * 1000);
+    }
+}
+
+function scheduleAutoSave() {
+    // Debounce auto save
+    clearTimeout(window.autoSaveTimeout);
+    window.autoSaveTimeout = setTimeout(() => {
+        if (documentData.id && hasChanges()) {
+            saveDocument(true);
+        }
+    }, 2000); // Save after 2 seconds of inactivity
+}
+
+// Create new document
+async function createNewDocument() {
+    const title = document.getElementById('documentTitle').value.trim() || 'Dokument i Ri';
+    const content = quill.getText();
+    const contentHtml = quill.root.innerHTML;
+    
+    showLoading('Duke krijuar dokumentin e ri...');
+    
+    try {
+        const response = await fetch('/documents/api/documents/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                title: title,
+                content: content,
+                content_html: contentHtml
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            documentData = data.document;
+            window.history.replaceState({}, '', `/documents/editor/${documentData.id}/`);
+            showAlert('success', 'Dokumenti u krijua me sukses');
+            lastSavedContent = quill.getContents();
+            markAsSaved();
+        } else {
+            showAlert('error', data.error || 'Gabim në krijimin e dokumentit');
+        }
+    } catch (error) {
+        console.error('Error creating document:', error);
+        showAlert('error', 'Gabim në krijimin e dokumentit');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Helper functions
+function hasChanges() {
+    const currentContent = quill.getContents();
+    return JSON.stringify(currentContent) !== JSON.stringify(lastSavedContent);
+}
+
+function markAsChanged() {
+    document.getElementById('statusDot').className = 'status-dot saving';
+    document.getElementById('statusText').textContent = 'Ka ndryshime';
+}
+
+function markAsSaved() {
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent = 'I ruajtur';
+}
+
+function switchSidebarTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    
+    // Update content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+}
+
+function showLoading(text = 'Duke procesuar...') {
+    document.getElementById('loadingText').textContent = text;
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="close" data-bs-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    `;
+    
+    const alertsContainer = document.getElementById('alertsContainer');
+    alertsContainer.insertAdjacentHTML('beforeend', alertHtml);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        const alert = alertsContainer.querySelector('.alert');
+        if (alert) {
+            alert.remove();
+        }
+    }, 5000);
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+           document.querySelector('meta[name="csrf-token"]')?.content;
+}
+
+// Comments functionality
+function loadComments(comments) {
+    const commentsList = document.getElementById('commentsList');
+    commentsList.innerHTML = '';
+    
+    comments.forEach(comment => {
+        const commentHtml = `
+            <div class="comment-item" data-comment-id="${comment.id}">
+                <div class="comment-author">${comment.author.username}</div>
+                <div class="comment-content">${comment.content}</div>
+                ${comment.selected_text ? `<div class="text-muted small">Për: "${comment.selected_text}"</div>` : ''}
+                <div class="comment-time">${new Date(comment.created_at).toLocaleString()}</div>
+                ${!comment.is_resolved ? `<button class="btn btn-sm btn-outline-success mt-2" onclick="resolveComment(${comment.id})">Zgjidh</button>` : '<span class="badge bg-success">I zgjidhur</span>'}
+            </div>
+        `;
+        commentsList.insertAdjacentHTML('beforeend', commentHtml);
+    });
+}
+
+function showCommentModal() {
+    const selection = quill.getSelection();
+    if (selection && selection.length > 0) {
+        const selectedText = quill.getText(selection.index, selection.length);
+        document.getElementById('selectedTextDisplay').textContent = selectedText;
+    } else {
+        document.getElementById('selectedTextDisplay').textContent = 'Koment i përgjithshëm';
+    }
+    
+    new bootstrap.Modal(document.getElementById('commentModal')).show();
+}
+
+async function saveComment() {
+    const content = document.getElementById('commentText').value.trim();
+    if (!content) {
+        showAlert('error', 'Përmbajtja e komentit është e detyrueshme');
+        return;
+    }
+    
+    const selection = quill.getSelection();
+    let commentData = {
+        content: content
+    };
+    
+    if (selection && selection.length > 0) {
+        commentData.position_start = selection.index;
+        commentData.position_end = selection.index + selection.length;
+        commentData.selected_text = quill.getText(selection.index, selection.length);
+    }
+    
+    try {
+        const response = await fetch(`/documents/api/documents/${documentData.id}/comments/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(commentData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('commentModal')).hide();
+            document.getElementById('commentText').value = '';
+            showAlert('success', data.message);
+            
+            // Reload comments
+            loadDocument(documentData.id);
+        } else {
+            showAlert('error', data.error);
+        }
+    } catch (error) {
+        console.error('Error saving comment:', error);
+        showAlert('error', 'Gabim në ruajtjen e komentit');
+    }
+}
+
+async function resolveComment(commentId) {
+    try {
+        const response = await fetch(`/documents/api/comments/${commentId}/resolve/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('success', data.message);
+            loadDocument(documentData.id);
+        } else {
+            showAlert('error', data.error);
+        }
+    } catch (error) {
+        console.error('Error resolving comment:', error);
+        showAlert('error', 'Gabim në zgjidhjen e komentit');
+    }
+}
+
+// Versions functionality
+function loadVersions(versions) {
+    const versionsList = document.getElementById('versionsList');
+    versionsList.innerHTML = '';
+    
+    versions.forEach(version => {
+        const versionHtml = `
+            <div class="version-item" onclick="restoreVersion(${version.version_number})">
+                <div class="version-number">Versioni ${version.version_number}</div>
+                <div class="version-summary">${version.changes_summary}</div>
+                <div class="text-muted small">
+                    ${version.created_by || 'System'} - ${new Date(version.created_at).toLocaleString()}
+                </div>
+            </div>
+        `;
+        versionsList.insertAdjacentHTML('beforeend', versionHtml);
+    });
+}
+
+async function createNewVersion() {
+    try {
+        const response = await fetch(`/documents/api/documents/${documentData.id}/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                content: quill.getText(),
+                content_html: quill.root.innerHTML,
+                create_version: true
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('success', 'Versioni i ri u krijua me sukses');
+            loadDocument(documentData.id);
+        } else {
+            showAlert('error', data.error);
+        }
+    } catch (error) {
+        console.error('Error creating version:', error);
+        showAlert('error', 'Gabim në krijimin e versionit');
+    }
+}
+
+async function restoreVersion(versionNumber) {
+    if (!confirm(`A jeni të sigurt që doni të riktheni versionin ${versionNumber}?`)) {
+        return;
+    }
+    
+    showLoading('Duke rikthyer versionin...');
+    
+    try {
+        const response = await fetch(`/documents/api/documents/${documentData.id}/versions/${versionNumber}/restore/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            quill.setContents(quill.clipboard.convert(data.content_html || data.content));
+            documentData.version_number = data.current_version;
+            lastSavedContent = quill.getContents();
+            markAsSaved();
+            showAlert('success', data.message);
+            loadDocument(documentData.id);
+        } else {
+            showAlert('error', data.error);
+        }
+    } catch (error) {
+        console.error('Error restoring version:', error);
+        showAlert('error', 'Gabim në rikthimin e versionit');
+    } finally {
+        hideLoading();
+    }
+}
+
+// LLM functionality
+function showLLMModal(action) {
+    const modal = document.getElementById('llmModal');
+    const title = document.getElementById('llmModalTitle');
+    const options = document.getElementById('llmOptions');
+    const executeBtn = document.getElementById('executeLLMBtn');
+    
+    // Reset modal
+    document.getElementById('llmResults').classList.add('d-none');
+    executeBtn.style.display = 'block';
+    
+    // Set up modal based on action
+    switch (action) {
+        case 'generate':
+            title.textContent = 'Gjenerimi i Përmbajtjes';
+            options.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Tipi i Dokumentit:</label>
+                    <select class="form-control" id="llmDocumentType">
+                        <option value="contract">Kontratë</option>
+                        <option value="complaint">Padi</option>
+                        <option value="appeal">Ankesë</option>
+                        <option value="memo">Memorandum</option>
+                        <option value="letter">Letër</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Detaje Shtesë:</label>
+                    <textarea class="form-control" id="llmDetails" rows="3" placeholder="Jepni detaje për përmbajtjen që doni të gjeneroni..."></textarea>
+                </div>
+            `;
+            break;
+            
+        case 'review':
+            title.textContent = 'Rishikimi i Dokumentit';
+            options.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Fokusu i Rishikimit:</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="legal_accuracy" id="focus1" checked>
+                        <label class="form-check-label" for="focus1">Saktësia Ligjore</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="format" id="focus2" checked>
+                        <label class="form-check-label" for="focus2">Formatimi</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="language" id="focus3" checked>
+                        <label class="form-check-label" for="focus3">Gjuha dhe Stili</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="completeness" id="focus4" checked>
+                        <label class="form-check-label" for="focus4">Plotësia</label>
+                    </div>
+                </div>
+            `;
+            break;
+            
+        case 'suggest':
+            title.textContent = 'Sugjerime për Përmirësim';
+            options.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Seksioni Specifik (opsional):</label>
+                    <input type="text" class="form-control" id="llmSection" placeholder="P.sh. Paragrafi i parë, Konkluzionet, etj.">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Lloji i Sugjerimit:</label>
+                    <select class="form-control" id="llmSuggestionType">
+                        <option value="general">Të përgjithshme</option>
+                        <option value="legal">Ligjore</option>
+                        <option value="language">Gjuhësore</option>
+                        <option value="structure">Strukturore</option>
+                    </select>
+                </div>
+            `;
+            break;
+            
+        case 'translate':
+            title.textContent = 'Përkthimi i Dokumentit';
+            options.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Gjuha e Destinacionit:</label>
+                    <select class="form-control" id="llmTargetLanguage">
+                        <option value="English">Anglisht</option>
+                        <option value="Italian">Italisht</option>
+                        <option value="French">Frëngjisht</option>
+                        <option value="German">Gjermanisht</option>
+                        <option value="Spanish">Spanjisht</option>
+                    </select>
+                </div>
+            `;
+            break;
+    }
+    
+    // Store action for execution
+    modal.dataset.action = action;
+    
+    new bootstrap.Modal(modal).show();
+}
+
+async function executeLLMAction() {
+    const modal = document.getElementById('llmModal');
+    const action = modal.dataset.action;
+    
+    showLoading('Duke procesuar me LLM...');
+    
+    try {
+        let endpoint, payload;
+        
+        switch (action) {
+            case 'generate':
+                endpoint = '/documents/api/documents/llm/generate/';
+                payload = {
+                    document_type: document.getElementById('llmDocumentType').value,
+                    template_vars: {
+                        details: document.getElementById('llmDetails').value
+                    }
+                };
+                break;
+                
+            case 'review':
+                endpoint = `/documents/api/documents/${documentData.id}/llm/review/`;
+                const focusAreas = Array.from(document.querySelectorAll('#llmOptions input:checked'))
+                    .map(input => input.value);
+                payload = { focus_areas: focusAreas };
+                break;
+                
+            case 'suggest':
+                endpoint = `/documents/api/documents/${documentData.id}/llm/suggest/`;
+                payload = {
+                    specific_section: document.getElementById('llmSection').value
+                };
+                break;
+                
+            case 'translate':
+                endpoint = `/documents/api/documents/${documentData.id}/llm/translate/`;
+                payload = {
+                    target_language: document.getElementById('llmTargetLanguage').value
+                };
+                break;
+        }
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show results
+            const resultContent = document.getElementById('llmResultContent');
+            if (action === 'generate' || action === 'translate') {
+                resultContent.innerHTML = data.content || data.translated_content || data.suggestions || data.review;
+            } else {
+                resultContent.innerHTML = data.review || data.suggestions;
+            }
+            
+            document.getElementById('llmResults').classList.remove('d-none');
+            document.getElementById('executeLLMBtn').style.display = 'none';
+            
+            // Store result for applying
+            modal.dataset.result = data.content || data.translated_content || data.suggestions || data.review;
+            modal.dataset.resultType = action;
+        } else {
+            showAlert('error', data.error);
+        }
+    } catch (error) {
+        console.error('Error executing LLM action:', error);
+        showAlert('error', 'Gabim në procesimin me LLM');
+    } finally {
+        hideLoading();
+    }
+}
+
+function applyLLMResult() {
+    const modal = document.getElementById('llmModal');
+    const result = modal.dataset.result;
+    const resultType = modal.dataset.resultType;
+    
+    if (resultType === 'generate' || resultType === 'translate') {
+        // Replace entire content
+        quill.setContents([]);
+        quill.clipboard.dangerouslyPasteHTML(result);
+    } else {
+        // Add as new content at the end
+        const currentLength = quill.getLength();
+        quill.insertText(currentLength - 1, '\n\n--- Sugjerime LLM ---\n');
+        quill.insertText(quill.getLength() - 1, result);
+    }
+    
+    markAsChanged();
+    bootstrap.Modal.getInstance(modal).hide();
+    showAlert('success', 'Rezultati u aplikua me sukses');
+}
+
+function copyLLMResult() {
+    const modal = document.getElementById('llmModal');
+    const result = modal.dataset.result;
+    
+    navigator.clipboard.writeText(result).then(() => {
+        showAlert('success', 'Rezultati u kopjua në clipboard');
+    }).catch(() => {
+        showAlert('error', 'Gabim në kopjimin e rezultatit');
+    });
+}
+
+// Document stats
+function loadDocumentStats(stats) {
+    const statsContainer = document.getElementById('documentStats');
+    statsContainer.innerHTML = `
+        <div class="mb-3">
+            <strong>Fjalë:</strong> ${stats.word_count || 0}
+        </div>
+        <div class="mb-3">
+            <strong>Karaktere:</strong> ${stats.character_count || 0}
+        </div>
+        <div class="mb-3">
+            <strong>Versione:</strong> ${stats.total_versions || 0}
+        </div>
+        <div class="mb-3">
+            <strong>Komente:</strong> ${stats.total_comments || 0}
+            ${stats.unresolved_comments ? `(${stats.unresolved_comments} të pazgjidhur)` : ''}
+        </div>
+        <div class="mb-3">
+            <strong>Krijuar:</strong> ${stats.creation_date ? new Date(stats.creation_date).toLocaleDateString() : 'N/A'}
+        </div>
+        <div class="mb-3">
+            <strong>Edituar për herë të fundit:</strong> ${stats.last_edited ? new Date(stats.last_edited).toLocaleDateString() : 'N/A'}
+        </div>
+        ${stats.llm_stats ? `
+        <div class="mt-4">
+            <h6>Statistikat LLM</h6>
+            <div class="small">
+                <div>Interaktime totale: ${stats.llm_stats.total_interactions}</div>
+                <div>Kohë mesatare: ${stats.llm_stats.avg_processing_time.toFixed(2)}s</div>
+                <div>Token totale: ${stats.llm_stats.total_tokens}</div>
+            </div>
+        </div>
+        ` : ''}
+    `;
+}
+
+// Export functionality
+async function exportDocument(format) {
+    if (!documentData.id) {
+        showAlert('error', 'Dokumenti duhet të ruhet para se të eksportohet');
+        return;
+    }
+    
+    showLoading(`Duke eksportuar në ${format.toUpperCase()}...`);
+    
+    try {
+        const response = await fetch(`/documents/editor/${documentData.id}/export/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: `format=${format}`
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.download_url) {
+                window.open(data.download_url, '_blank');
+            }
+            showAlert('success', data.message);
+        } else {
+            showAlert('error', data.error);
+        }
+    } catch (error) {
+        console.error('Error exporting document:', error);
+        showAlert('error', 'Gabim në eksportimin e dokumentit');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Cleanup when leaving page
+window.addEventListener('beforeunload', function(e) {
+    if (hasChanges()) {
+        e.preventDefault();
+        e.returnValue = 'Keni ndryshime të paruajtura. A jeni të sigurt që doni të largoheni?';
+        return e.returnValue;
+    }
+});
+
+// Cleanup intervals
+window.addEventListener('unload', function() {
+    if (autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+    }
+    if (window.autoSaveTimeout) {
+        clearTimeout(window.autoSaveTimeout);
+    }
+});
+</script>
+{% endblock %}
