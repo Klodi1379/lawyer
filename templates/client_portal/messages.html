@@ -1,0 +1,549 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Messages - Client Portal{% endblock %}
+
+{% block extra_css %}
+<style>
+.message-thread {
+    max-height: 500px;
+    overflow-y: auto;
+}
+.message-bubble {
+    border-radius: 15px;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    max-width: 80%;
+}
+.message-sent {
+    background-color: #007bff;
+    color: white;
+    margin-left: auto;
+}
+.message-received {
+    background-color: #f1f1f1;
+    color: #333;
+}
+.message-time {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+.conversation-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.conversation-item:hover {
+    background-color: #f8f9fa;
+}
+.conversation-item.active {
+    background-color: #e3f2fd;
+    border-left: 3px solid #2196f3;
+}
+.unread-badge {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #dc3545;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'client_portal:dashboard' %}">Portal</a></li>
+                            <li class="breadcrumb-item active">Messages</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">💬 Messages</h1>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="startNewConversation()">
+                    <i class="fas fa-plus"></i> New Message
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Conversations List -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Conversations</h5>
+                        <span class="badge bg-primary">{{ unread_count|default:0 }}</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Search -->
+                    <div class="p-3 border-bottom">
+                        <input type="text" class="form-control" id="conversationSearch" placeholder="Search conversations..." onkeyup="filterConversations()">
+                    </div>
+                    
+                    <!-- Conversations -->
+                    <div id="conversationsList">
+                        {% if conversations %}
+                            {% for conversation in conversations %}
+                            <div class="conversation-item p-3 border-bottom {% if forloop.first %}active{% endif %}" 
+                                 onclick="loadConversation({{ conversation.id }})" 
+                                 data-conversation-id="{{ conversation.id }}">
+                                <div class="d-flex align-items-start">
+                                    <div class="flex-shrink-0">
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            {{ conversation.participant.first_name|first|default:conversation.participant.username|first|upper }}
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <h6 class="mb-1">{{ conversation.participant.get_full_name|default:conversation.participant.username }}</h6>
+                                            <div class="d-flex align-items-center">
+                                                {% if conversation.unread_count > 0 %}
+                                                    <span class="unread-badge me-2"></span>
+                                                {% endif %}
+                                                <small class="text-muted">{{ conversation.last_message_time|timesince }}</small>
+                                            </div>
+                                        </div>
+                                        <p class="mb-1 text-muted small">{{ conversation.last_message|truncatechars:50 }}</p>
+                                        {% if conversation.case %}
+                                            <span class="badge badge-light">{{ conversation.case.title|truncatechars:20 }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No conversations yet. Start a new conversation!</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Thread -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header" id="conversationHeader" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                <span id="participantInitial"></span>
+                            </div>
+                            <div>
+                                <h6 class="mb-0" id="participantName"></h6>
+                                <small class="text-muted" id="participantRole"></small>
+                            </div>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary" onclick="markAsRead()">
+                                <i class="fas fa-check"></i> Mark Read
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" onclick="flagConversation()">
+                                <i class="fas fa-flag"></i> Flag
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-0">
+                    <!-- Message Thread -->
+                    <div class="message-thread p-3" id="messageThread">
+                        <div class="text-center py-5" id="noConversationMessage">
+                            <i class="fas fa-comment-dots fa-4x text-muted mb-3"></i>
+                            <h5 class="text-muted">Select a conversation</h5>
+                            <p class="text-muted">Choose a conversation from the list to view messages</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Message Input -->
+                <div class="card-footer" id="messageInput" style="display: none;">
+                    <form id="messageForm" class="d-flex align-items-end">
+                        <div class="flex-grow-1 me-2">
+                            <textarea class="form-control" id="messageText" rows="2" placeholder="Type your message..." required></textarea>
+                        </div>
+                        <div class="d-flex flex-column">
+                            <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="attachFile()">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Conversation Modal -->
+<div class="modal fade" id="newConversationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">New Message</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="newConversationForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="recipientSelect" class="form-label">To:</label>
+                        <select class="form-control" id="recipientSelect" required>
+                            <option value="">Select recipient</option>
+                            {% for lawyer in available_lawyers %}
+                            <option value="{{ lawyer.id }}">{{ lawyer.get_full_name }} - {{ lawyer.role|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="caseSelect" class="form-label">Related Case (Optional):</label>
+                        <select class="form-control" id="caseSelect">
+                            <option value="">Select case</option>
+                            {% for case in user_cases %}
+                            <option value="{{ case.id }}">{{ case.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="messageSubject" class="form-label">Subject:</label>
+                        <input type="text" class="form-control" id="messageSubject" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="initialMessage" class="form-label">Message:</label>
+                        <textarea class="form-control" id="initialMessage" rows="4" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prioritySelect" class="form-label">Priority:</label>
+                        <select class="form-control" id="prioritySelect">
+                            <option value="normal">Normal</option>
+                            <option value="urgent">Urgent</option>
+                            <option value="emergency">Emergency</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Send Message
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- File Attachment Modal -->
+<div class="modal fade" id="attachmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Attach File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="attachmentForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="fileInput" class="form-label">Choose File:</label>
+                        <input type="file" class="form-control" id="fileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt" required>
+                        <small class="form-text text-muted">
+                            Allowed types: PDF, DOC, DOCX, JPG, PNG, TXT (Max 10MB)
+                        </small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fileDescription" class="form-label">Description (Optional):</label>
+                        <input type="text" class="form-control" id="fileDescription" placeholder="Brief description of the file">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Attach File
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentConversationId = null;
+let lastMessageId = null;
+
+function startNewConversation() {
+    new bootstrap.Modal(document.getElementById('newConversationModal')).show();
+}
+
+function loadConversation(conversationId) {
+    currentConversationId = conversationId;
+    
+    // Update active conversation
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    document.querySelector(`[data-conversation-id="${conversationId}"]`).classList.add('active');
+    
+    // Load conversation details
+    fetch(`/client-portal/api/conversations/${conversationId}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update header
+            document.getElementById('participantInitial').textContent = data.conversation.participant.first_name.charAt(0).toUpperCase();
+            document.getElementById('participantName').textContent = data.conversation.participant.full_name;
+            document.getElementById('participantRole').textContent = data.conversation.participant.role;
+            
+            // Show header and input
+            document.getElementById('conversationHeader').style.display = 'block';
+            document.getElementById('messageInput').style.display = 'block';
+            document.getElementById('noConversationMessage').style.display = 'none';
+            
+            // Load messages
+            loadMessages(conversationId);
+        }
+    });
+}
+
+function loadMessages(conversationId) {
+    fetch(`/client-portal/api/conversations/${conversationId}/messages/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const thread = document.getElementById('messageThread');
+            thread.innerHTML = '';
+            
+            data.messages.forEach(message => {
+                const messageElement = createMessageElement(message);
+                thread.appendChild(messageElement);
+                lastMessageId = Math.max(lastMessageId || 0, message.id);
+            });
+            
+            // Scroll to bottom
+            thread.scrollTop = thread.scrollHeight;
+        }
+    });
+}
+
+function createMessageElement(message) {
+    const div = document.createElement('div');
+    div.className = `d-flex ${message.is_from_client ? 'justify-content-end' : 'justify-content-start'} mb-3`;
+    
+    const bubbleClass = message.is_from_client ? 'message-sent' : 'message-received';
+    
+    div.innerHTML = `
+        <div class="message-bubble ${bubbleClass}">
+            <div class="message-content">${message.content}</div>
+            ${message.attachment ? `
+                <div class="message-attachment mt-2">
+                    <a href="${message.attachment.url}" target="_blank" class="text-decoration-none">
+                        <i class="fas fa-paperclip"></i> ${message.attachment.filename}
+                    </a>
+                </div>
+            ` : ''}
+            <div class="message-time mt-1">${formatMessageTime(message.created_at)}</div>
+        </div>
+    `;
+    
+    return div;
+}
+
+function formatMessageTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+        return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    } else if (diffDays === 1) {
+        return 'Yesterday ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    } else {
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
+}
+
+// Send message
+document.getElementById('messageForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const messageText = document.getElementById('messageText').value.trim();
+    if (!messageText || !currentConversationId) return;
+    
+    const messageData = {
+        conversation_id: currentConversationId,
+        content: messageText
+    };
+    
+    fetch('/client-portal/api/messages/send/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(messageData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Add message to thread
+            const messageElement = createMessageElement(data.message);
+            document.getElementById('messageThread').appendChild(messageElement);
+            
+            // Clear input
+            document.getElementById('messageText').value = '';
+            
+            // Scroll to bottom
+            const thread = document.getElementById('messageThread');
+            thread.scrollTop = thread.scrollHeight;
+            
+            // Update conversation list
+            updateConversationsList();
+        } else {
+            alert('Error sending message: ' + data.error);
+        }
+    });
+});
+
+// New conversation
+document.getElementById('newConversationForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const conversationData = {
+        recipient_id: document.getElementById('recipientSelect').value,
+        case_id: document.getElementById('caseSelect').value,
+        subject: document.getElementById('messageSubject').value,
+        message: document.getElementById('initialMessage').value,
+        priority: document.getElementById('prioritySelect').value
+    };
+    
+    fetch('/client-portal/api/conversations/create/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(conversationData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('newConversationModal')).hide();
+            this.reset();
+            
+            // Reload page to show new conversation
+            location.reload();
+        } else {
+            alert('Error creating conversation: ' + data.error);
+        }
+    });
+});
+
+function attachFile() {
+    new bootstrap.Modal(document.getElementById('attachmentModal')).show();
+}
+
+function markAsRead() {
+    if (currentConversationId) {
+        fetch(`/client-portal/api/conversations/${currentConversationId}/mark-read/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+    }
+}
+
+function flagConversation() {
+    // Implementation for flagging conversation
+    alert('Flag conversation feature will be implemented');
+}
+
+function filterConversations() {
+    const searchTerm = document.getElementById('conversationSearch').value.toLowerCase();
+    const conversations = document.querySelectorAll('.conversation-item');
+    
+    conversations.forEach(item => {
+        const name = item.querySelector('h6').textContent.toLowerCase();
+        const message = item.querySelector('p').textContent.toLowerCase();
+        
+        if (name.includes(searchTerm) || message.includes(searchTerm)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function updateConversationsList() {
+    // Refresh conversations list
+    fetch('/client-portal/api/conversations/')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update conversation list with new data
+            // Implementation depends on the response structure
+        }
+    });
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Auto-refresh messages every 30 seconds
+setInterval(() => {
+    if (currentConversationId && document.visibilityState === 'visible') {
+        fetch(`/client-portal/api/conversations/${currentConversationId}/messages/?after=${lastMessageId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.messages.length > 0) {
+                const thread = document.getElementById('messageThread');
+                
+                data.messages.forEach(message => {
+                    const messageElement = createMessageElement(message);
+                    thread.appendChild(messageElement);
+                    lastMessageId = Math.max(lastMessageId, message.id);
+                });
+                
+                // Scroll to bottom if user is near bottom
+                if (thread.scrollTop + thread.clientHeight >= thread.scrollHeight - 100) {
+                    thread.scrollTop = thread.scrollHeight;
+                }
+            }
+        });
+    }
+}, 30000);
+
+// Load first conversation on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const firstConversation = document.querySelector('.conversation-item');
+    if (firstConversation) {
+        const conversationId = firstConversation.getAttribute('data-conversation-id');
+        loadConversation(conversationId);
+    }
+});
+
+// Auto-resize textarea
+document.getElementById('messageText').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+});
+
+// Send message on Ctrl+Enter
+document.getElementById('messageText').addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('messageForm').dispatchEvent(new Event('submit'));
+    }
+});
+</script>
+{% endblock %}

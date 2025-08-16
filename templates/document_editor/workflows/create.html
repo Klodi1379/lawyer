@@ -1,0 +1,868 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Workflow - Document Editor{% endblock %}
+
+{% block extra_css %}
+<style>
+.workflow-builder {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+    min-height: 400px;
+}
+.step-card {
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: white;
+    position: relative;
+    transition: all 0.3s ease;
+}
+.step-card:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 10px rgba(0,123,255,0.1);
+}
+.step-card.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+.step-number {
+    position: absolute;
+    top: -10px;
+    left: 15px;
+    background: #007bff;
+    color: white;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+.step-connector {
+    border-left: 2px dashed #dee2e6;
+    height: 20px;
+    margin-left: 25px;
+}
+.add-step-zone {
+    border: 2px dashed #007bff;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: #007bff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.add-step-zone:hover {
+    background: #e3f2fd;
+}
+.template-selector {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+}
+.template-item {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #f8f9fa;
+    transition: background 0.2s ease;
+}
+.template-item:hover {
+    background: #f8f9fa;
+}
+.template-item.selected {
+    background: #e3f2fd;
+    border-color: #007bff;
+}
+.user-selector {
+    max-height: 200px;
+    overflow-y: auto;
+}
+.condition-builder {
+    background: #f8f9fa;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 10px 0;
+}
+.workflow-preview {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 20px;
+    position: sticky;
+    top: 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'document_editor:dashboard' %}">Document Editor</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'document_editor:workflow_list' %}">Workflows</a></li>
+                            <li class="breadcrumb-item active">Create</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">🔄 Create Workflow</h1>
+                    <p class="text-muted">Design an automated document process</p>
+                </div>
+                <div>
+                    <a href="{% url 'document_editor:workflow_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Workflows
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="workflowForm">
+        {% csrf_token %}
+        <div class="row">
+            <!-- Main Form -->
+            <div class="col-lg-8 mb-4">
+                <!-- Basic Information -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Basic Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Workflow Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="name" name="name" required placeholder="Enter workflow name">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="category" class="form-label">Category</label>
+                                    <select class="form-control" id="category" name="category">
+                                        <option value="approval">Approval Process</option>
+                                        <option value="review">Review Process</option>
+                                        <option value="collaboration">Collaboration</option>
+                                        <option value="automation">Automation</option>
+                                        <option value="custom">Custom</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" placeholder="Describe what this workflow does"></textarea>
+                        </div>
+
+                        <!-- Template Selection -->
+                        <div class="mb-3">
+                            <label for="template" class="form-label">Base Template (Optional)</label>
+                            <div class="template-selector" id="templateSelector">
+                                <div class="template-item" data-template-id="">
+                                    <strong>No Template</strong>
+                                    <div class="small text-muted">Start with a blank workflow</div>
+                                </div>
+                                {% for template in templates %}
+                                <div class="template-item" data-template-id="{{ template.id }}">
+                                    <strong>{{ template.name }}</strong>
+                                    <div class="small text-muted">{{ template.description|truncatechars:60 }}</div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <input type="hidden" id="template" name="template" value="">
+                        </div>
+
+                        <!-- Workflow Settings -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check mb-3">
+                                    <input type="checkbox" class="form-check-input" id="autoStart" name="auto_start">
+                                    <label class="form-check-label" for="autoStart">
+                                        Auto-start workflow
+                                    </label>
+                                    <small class="form-text text-muted">Automatically start when triggered</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mb-3">
+                                    <input type="checkbox" class="form-check-input" id="allowParallel" name="allow_parallel">
+                                    <label class="form-check-label" for="allowParallel">
+                                        Allow parallel execution
+                                    </label>
+                                    <small class="form-text text-muted">Steps can run simultaneously</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="priority" class="form-label">Priority</label>
+                                    <select class="form-control" id="priority" name="priority">
+                                        <option value="low">Low</option>
+                                        <option value="normal" selected>Normal</option>
+                                        <option value="high">High</option>
+                                        <option value="urgent">Urgent</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="dueDate" class="form-label">Due Date (Optional)</label>
+                                    <input type="date" class="form-control" id="dueDate" name="due_date">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Builder -->
+                <div class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Workflow Steps</h5>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addStep('approval')">
+                                <i class="fas fa-check"></i> Add Approval
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-info" onclick="addStep('review')">
+                                <i class="fas fa-eye"></i> Add Review
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="addStep('task')">
+                                <i class="fas fa-tasks"></i> Add Task
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-warning" onclick="addStep('condition')">
+                                <i class="fas fa-code-branch"></i> Add Condition
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="workflow-builder" id="workflowBuilder">
+                            <div class="add-step-zone" onclick="showStepTypes()">
+                                <i class="fas fa-plus fa-2x mb-2"></i>
+                                <div>Click to add your first step</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Triggers and Conditions -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Triggers</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Start Trigger</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <select class="form-control" id="triggerType" name="trigger_type">
+                                        <option value="manual">Manual Start</option>
+                                        <option value="document_created">Document Created</option>
+                                        <option value="document_updated">Document Updated</option>
+                                        <option value="template_used">Template Used</option>
+                                        <option value="scheduled">Scheduled</option>
+                                        <option value="webhook">Webhook</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" id="triggerCondition" name="trigger_condition" placeholder="Trigger condition (optional)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="notifyParticipants" name="notify_participants" checked>
+                            <label class="form-check-label" for="notifyParticipants">
+                                Notify participants when workflow starts
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <button type="submit" name="action" value="save_draft" class="btn btn-secondary">
+                                    <i class="fas fa-save"></i> Save as Draft
+                                </button>
+                                <button type="submit" name="action" value="save_active" class="btn btn-primary">
+                                    <i class="fas fa-play"></i> Save & Activate
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-outline-info" onclick="previewWorkflow()">
+                                    <i class="fas fa-eye"></i> Preview
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="testWorkflow()">
+                                    <i class="fas fa-flask"></i> Test
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4 mb-4">
+                <!-- Workflow Preview -->
+                <div class="workflow-preview">
+                    <h5>Workflow Preview</h5>
+                    <div id="workflowPreview">
+                        <p class="text-muted text-center">Add steps to see workflow preview</p>
+                    </div>
+                </div>
+
+                <!-- Step Templates -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Step Templates</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadStepTemplate('document_approval')">
+                                Document Approval
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="loadStepTemplate('legal_review')">
+                                Legal Review
+                            </button>
+                            <button type="button" class="btn btn-outline-success btn-sm" onclick="loadStepTemplate('client_signature')">
+                                Client Signature
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="loadStepTemplate('compliance_check')">
+                                Compliance Check
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadStepTemplate('final_delivery')">
+                                Final Delivery
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Participants -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Workflow Participants</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="user-selector" id="participantsList">
+                            {% for user in team_members %}
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="participant_{{ user.id }}" name="participants" value="{{ user.id }}">
+                                <label class="form-check-label" for="participant_{{ user.id }}">
+                                    {{ user.get_full_name }}
+                                    <small class="text-muted d-block">{{ user.email }}</small>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Statistics -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Stats</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h6 class="text-primary" id="stepCount">0</h6>
+                                <small class="text-muted">Steps</small>
+                            </div>
+                            <div class="col-6">
+                                <h6 class="text-success" id="participantCount">0</h6>
+                                <small class="text-muted">Participants</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h6 class="text-info" id="estimatedDuration">-</h6>
+                                <small class="text-muted">Est. Duration</small>
+                            </div>
+                            <div class="col-6">
+                                <h6 class="text-warning" id="complexityScore">Low</h6>
+                                <small class="text-muted">Complexity</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Step Configuration Modal -->
+<div class="modal fade" id="stepModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configure Step</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="stepForm">
+                <div class="modal-body">
+                    <input type="hidden" id="stepId" name="step_id">
+                    <input type="hidden" id="stepType" name="step_type">
+                    
+                    <div class="mb-3">
+                        <label for="stepName" class="form-label">Step Name</label>
+                        <input type="text" class="form-control" id="stepName" name="step_name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="stepDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="stepDescription" name="step_description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="stepAssignee" class="form-label">Assignee</label>
+                                <select class="form-control" id="stepAssignee" name="step_assignee">
+                                    <option value="">Select Assignee</option>
+                                    {% for user in team_members %}
+                                    <option value="{{ user.id }}">{{ user.get_full_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="stepDuration" class="form-label">Duration (hours)</label>
+                                <input type="number" class="form-control" id="stepDuration" name="step_duration" min="0" step="0.5">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="stepSpecificFields">
+                        <!-- Dynamic fields based on step type -->
+                    </div>
+                    
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="stepRequired" name="step_required" checked>
+                        <label class="form-check-label" for="stepRequired">
+                            Required step
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Step</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let stepCounter = 0;
+let workflowSteps = [];
+
+// Template selection
+document.querySelectorAll('.template-item').forEach(item => {
+    item.addEventListener('click', function() {
+        document.querySelectorAll('.template-item').forEach(i => i.classList.remove('selected'));
+        this.classList.add('selected');
+        document.getElementById('template').value = this.dataset.templateId;
+    });
+});
+
+// Participant selection
+document.querySelectorAll('input[name="participants"]').forEach(checkbox => {
+    checkbox.addEventListener('change', updateParticipantCount);
+});
+
+function addStep(type) {
+    stepCounter++;
+    const stepId = `step_${stepCounter}`;
+    
+    const stepData = {
+        id: stepId,
+        type: type,
+        name: `${type.charAt(0).toUpperCase() + type.slice(1)} Step`,
+        description: '',
+        assignee: '',
+        duration: 1,
+        required: true
+    };
+    
+    workflowSteps.push(stepData);
+    renderWorkflowBuilder();
+    updateWorkflowPreview();
+    updateStats();
+    
+    // Open configuration modal
+    configureStep(stepId);
+}
+
+function configureStep(stepId) {
+    const step = workflowSteps.find(s => s.id === stepId);
+    if (!step) return;
+    
+    document.getElementById('stepId').value = stepId;
+    document.getElementById('stepType').value = step.type;
+    document.getElementById('stepName').value = step.name;
+    document.getElementById('stepDescription').value = step.description;
+    document.getElementById('stepAssignee').value = step.assignee;
+    document.getElementById('stepDuration').value = step.duration;
+    document.getElementById('stepRequired').checked = step.required;
+    
+    // Add step-specific fields
+    updateStepSpecificFields(step.type);
+    
+    new bootstrap.Modal(document.getElementById('stepModal')).show();
+}
+
+function updateStepSpecificFields(stepType) {
+    const container = document.getElementById('stepSpecificFields');
+    container.innerHTML = '';
+    
+    switch(stepType) {
+        case 'approval':
+            container.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Approval Type</label>
+                    <select class="form-control" name="approval_type">
+                        <option value="simple">Simple Approval</option>
+                        <option value="multi_level">Multi-level Approval</option>
+                        <option value="unanimous">Unanimous Approval</option>
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" name="auto_approve" id="autoApprove">
+                    <label class="form-check-label" for="autoApprove">
+                        Auto-approve after timeout
+                    </label>
+                </div>
+            `;
+            break;
+        case 'review':
+            container.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Review Criteria</label>
+                    <textarea class="form-control" name="review_criteria" rows="3" placeholder="What should be reviewed?"></textarea>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" name="allow_comments" id="allowComments" checked>
+                    <label class="form-check-label" for="allowComments">
+                        Allow reviewer comments
+                    </label>
+                </div>
+            `;
+            break;
+        case 'task':
+            container.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Task Instructions</label>
+                    <textarea class="form-control" name="task_instructions" rows="3" placeholder="Detailed task instructions..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Task Type</label>
+                    <select class="form-control" name="task_type">
+                        <option value="document_creation">Document Creation</option>
+                        <option value="review">Review</option>
+                        <option value="approval">Approval</option>
+                        <option value="notification">Notification</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+            `;
+            break;
+        case 'condition':
+            container.innerHTML = `
+                <div class="condition-builder">
+                    <label class="form-label">Condition Logic</label>
+                    <div class="mb-2">
+                        <select class="form-control mb-2" name="condition_field">
+                            <option value="document_status">Document Status</option>
+                            <option value="assignee">Assignee</option>
+                            <option value="due_date">Due Date</option>
+                            <option value="custom_field">Custom Field</option>
+                        </select>
+                        <select class="form-control mb-2" name="condition_operator">
+                            <option value="equals">Equals</option>
+                            <option value="not_equals">Not Equals</option>
+                            <option value="greater_than">Greater Than</option>
+                            <option value="less_than">Less Than</option>
+                            <option value="contains">Contains</option>
+                        </select>
+                        <input type="text" class="form-control" name="condition_value" placeholder="Value">
+                    </div>
+                </div>
+            `;
+            break;
+    }
+}
+
+function removeStep(stepId) {
+    workflowSteps = workflowSteps.filter(s => s.id !== stepId);
+    renderWorkflowBuilder();
+    updateWorkflowPreview();
+    updateStats();
+}
+
+function moveStep(stepId, direction) {
+    const index = workflowSteps.findIndex(s => s.id === stepId);
+    if (index === -1) return;
+    
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= workflowSteps.length) return;
+    
+    [workflowSteps[index], workflowSteps[newIndex]] = [workflowSteps[newIndex], workflowSteps[index]];
+    renderWorkflowBuilder();
+    updateWorkflowPreview();
+}
+
+function renderWorkflowBuilder() {
+    const builder = document.getElementById('workflowBuilder');
+    let html = '';
+    
+    workflowSteps.forEach((step, index) => {
+        const stepIcon = getStepIcon(step.type);
+        const assigneeName = step.assignee ? getAssigneeName(step.assignee) : 'Unassigned';
+        
+        html += `
+            <div class="step-card" data-step-id="${step.id}">
+                <div class="step-number">${index + 1}</div>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">
+                            <i class="${stepIcon} me-2"></i>
+                            ${step.name}
+                        </h6>
+                        <p class="text-muted mb-2">${step.description || 'No description'}</p>
+                        <div class="d-flex align-items-center">
+                            <small class="text-muted me-3">
+                                <i class="fas fa-user me-1"></i>${assigneeName}
+                            </small>
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>${step.duration}h
+                            </small>
+                        </div>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary" onclick="configureStep('${step.id}')" title="Configure">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="moveStep('${step.id}', 'up')" title="Move Up" ${index === 0 ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="moveStep('${step.id}', 'down')" title="Move Down" ${index === workflowSteps.length - 1 ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-down"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="removeStep('${step.id}')" title="Remove">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            ${index < workflowSteps.length - 1 ? '<div class="step-connector"></div>' : ''}
+        `;
+    });
+    
+    if (workflowSteps.length === 0) {
+        html = `
+            <div class="add-step-zone" onclick="showStepTypes()">
+                <i class="fas fa-plus fa-2x mb-2"></i>
+                <div>Click to add your first step</div>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="add-step-zone mt-3" onclick="showStepTypes()">
+                <i class="fas fa-plus mb-2"></i>
+                <div>Add another step</div>
+            </div>
+        `;
+    }
+    
+    builder.innerHTML = html;
+}
+
+function updateWorkflowPreview() {
+    const preview = document.getElementById('workflowPreview');
+    
+    if (workflowSteps.length === 0) {
+        preview.innerHTML = '<p class="text-muted text-center">Add steps to see workflow preview</p>';
+        return;
+    }
+    
+    let html = '<div class="workflow-flow">';
+    workflowSteps.forEach((step, index) => {
+        const stepIcon = getStepIcon(step.type);
+        html += `
+            <div class="d-flex align-items-center mb-2">
+                <div class="step-indicator bg-primary text-white rounded-circle me-2" style="width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
+                    ${index + 1}
+                </div>
+                <div>
+                    <div class="fw-bold">${step.name}</div>
+                    <small class="text-muted">${step.type}</small>
+                </div>
+            </div>
+        `;
+        if (index < workflowSteps.length - 1) {
+            html += '<div style="margin-left: 12px; border-left: 2px dashed #dee2e6; height: 15px;"></div>';
+        }
+    });
+    html += '</div>';
+    
+    preview.innerHTML = html;
+}
+
+function updateStats() {
+    document.getElementById('stepCount').textContent = workflowSteps.length;
+    
+    const totalDuration = workflowSteps.reduce((sum, step) => sum + (parseFloat(step.duration) || 0), 0);
+    document.getElementById('estimatedDuration').textContent = totalDuration > 0 ? `${totalDuration}h` : '-';
+    
+    const complexity = workflowSteps.length <= 3 ? 'Low' : workflowSteps.length <= 6 ? 'Medium' : 'High';
+    document.getElementById('complexityScore').textContent = complexity;
+}
+
+function updateParticipantCount() {
+    const checkedBoxes = document.querySelectorAll('input[name="participants"]:checked');
+    document.getElementById('participantCount').textContent = checkedBoxes.length;
+}
+
+function getStepIcon(type) {
+    const icons = {
+        'approval': 'fas fa-check-circle',
+        'review': 'fas fa-eye',
+        'task': 'fas fa-tasks',
+        'condition': 'fas fa-code-branch'
+    };
+    return icons[type] || 'fas fa-circle';
+}
+
+function getAssigneeName(assigneeId) {
+    const option = document.querySelector(`#stepAssignee option[value="${assigneeId}"]`);
+    return option ? option.textContent : 'Unknown';
+}
+
+function showStepTypes() {
+    // This could open a modal with step type selection
+    const stepType = prompt('Select step type:\n1. Approval\n2. Review\n3. Task\n4. Condition\n\nEnter number:');
+    const types = ['approval', 'review', 'task', 'condition'];
+    if (stepType && stepType >= 1 && stepType <= 4) {
+        addStep(types[stepType - 1]);
+    }
+}
+
+function loadStepTemplate(templateType) {
+    const templates = {
+        'document_approval': {
+            type: 'approval',
+            name: 'Document Approval',
+            description: 'Approve the document for publication',
+            duration: 2
+        },
+        'legal_review': {
+            type: 'review',
+            name: 'Legal Review',
+            description: 'Review document for legal compliance',
+            duration: 4
+        },
+        'client_signature': {
+            type: 'task',
+            name: 'Client Signature',
+            description: 'Obtain client signature on document',
+            duration: 1
+        },
+        'compliance_check': {
+            type: 'review',
+            name: 'Compliance Check',
+            description: 'Check document for regulatory compliance',
+            duration: 3
+        },
+        'final_delivery': {
+            type: 'task',
+            name: 'Final Delivery',
+            description: 'Deliver completed document to client',
+            duration: 0.5
+        }
+    };
+    
+    const template = templates[templateType];
+    if (template) {
+        stepCounter++;
+        const stepId = `step_${stepCounter}`;
+        
+        workflowSteps.push({
+            id: stepId,
+            ...template,
+            assignee: '',
+            required: true
+        });
+        
+        renderWorkflowBuilder();
+        updateWorkflowPreview();
+        updateStats();
+    }
+}
+
+function previewWorkflow() {
+    alert('Workflow preview functionality will be implemented');
+}
+
+function testWorkflow() {
+    alert('Workflow testing functionality will be implemented');
+}
+
+// Step form submission
+document.getElementById('stepForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const stepId = formData.get('step_id');
+    const step = workflowSteps.find(s => s.id === stepId);
+    
+    if (step) {
+        step.name = formData.get('step_name');
+        step.description = formData.get('step_description');
+        step.assignee = formData.get('step_assignee');
+        step.duration = parseFloat(formData.get('step_duration')) || 1;
+        step.required = formData.has('step_required');
+        
+        renderWorkflowBuilder();
+        updateWorkflowPreview();
+        updateStats();
+        
+        bootstrap.Modal.getInstance(document.getElementById('stepModal')).hide();
+    }
+});
+
+// Form submission
+document.getElementById('workflowForm').addEventListener('submit', function(e) {
+    if (workflowSteps.length === 0) {
+        e.preventDefault();
+        alert('Please add at least one step to your workflow.');
+        return false;
+    }
+    
+    // Add workflow steps data to form
+    const stepsInput = document.createElement('input');
+    stepsInput.type = 'hidden';
+    stepsInput.name = 'workflow_steps';
+    stepsInput.value = JSON.stringify(workflowSteps);
+    this.appendChild(stepsInput);
+});
+
+// Initialize
+updateStats();
+updateParticipantCount();
+</script>
+{% endblock %}

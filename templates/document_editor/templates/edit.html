@@ -1,0 +1,774 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Template - Document Editor{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'document_editor/css/document-editor.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'document_editor:dashboard' %}">Document Editor</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'document_editor:template_list' %}">Templates</a></li>
+                            <li class="breadcrumb-item active">Edit</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">✏️ Edit Template</h1>
+                </div>
+                <div>
+                    <a href="{% url 'document_editor:template_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Templates
+                    </a>
+                    <a href="{% url 'document_editor:template_detail' template.id %}" class="btn btn-outline-info">
+                        <i class="fas fa-eye"></i> View
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="templateForm">
+        {% csrf_token %}
+        <div class="row">
+            <!-- Main Form -->
+            <div class="col-lg-8 mb-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Template Information</h5>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-{% if template.access_level == 'public' %}success{% elif template.access_level == 'team' %}info{% else %}secondary{% endif %} me-2">
+                                {{ template.get_access_level_display }}
+                            </span>
+                            <small class="text-muted">Last updated: {{ template.updated_at|timesince }} ago</small>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Template Name -->
+                        <div class="mb-3">
+                            <label for="name" class="form-label">
+                                Template Name <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ template.name }}" required>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3">{{ template.description }}</textarea>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Category <span class="text-danger">*</span></label>
+                            <select class="form-control" id="category" name="category" required>
+                                <option value="">Select Category</option>
+                                <option value="contract" {% if template.category == 'contract' %}selected{% endif %}>Contracts</option>
+                                <option value="letter" {% if template.category == 'letter' %}selected{% endif %}>Letters</option>
+                                <option value="legal" {% if template.category == 'legal' %}selected{% endif %}>Legal Documents</option>
+                                <option value="business" {% if template.category == 'business' %}selected{% endif %}>Business</option>
+                                <option value="personal" {% if template.category == 'personal' %}selected{% endif %}>Personal</option>
+                                <option value="other" {% if template.category == 'other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="mb-3">
+                            <label for="content" class="form-label">
+                                Template Content <span class="text-danger">*</span>
+                            </label>
+                            <div id="content-editor" style="min-height: 400px; border: 1px solid #ddd;">
+                                <!-- Rich text editor will be initialized here -->
+                            </div>
+                            <textarea name="content" id="content" style="display: none;" required>{{ template.content }}</textarea>
+                            <small class="form-text text-muted">
+                                Use placeholders like [CLIENT_NAME], [DATE], [AMOUNT] for dynamic content.
+                            </small>
+                        </div>
+
+                        <!-- Variables/Placeholders -->
+                        <div class="mb-3">
+                            <label for="variables" class="form-label">Template Variables</label>
+                            <div id="variablesContainer">
+                                {% for variable in template.variables.all %}
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" placeholder="Variable name" 
+                                           name="variable_names[]" value="{{ variable.name }}">
+                                    <input type="text" class="form-control" placeholder="Description" 
+                                           name="variable_descriptions[]" value="{{ variable.description }}">
+                                    <button type="button" class="btn btn-outline-danger" onclick="removeVariable(this)">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+                                </div>
+                                {% empty %}
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" placeholder="Variable name (e.g., CLIENT_NAME)" 
+                                           name="variable_names[]">
+                                    <input type="text" class="form-control" placeholder="Description" 
+                                           name="variable_descriptions[]">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="addVariable()">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                                {% if template.variables.exists %}
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" placeholder="Variable name (e.g., CLIENT_NAME)" 
+                                           name="variable_names[]">
+                                    <input type="text" class="form-control" placeholder="Description" 
+                                           name="variable_descriptions[]">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="addVariable()">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <small class="form-text text-muted">
+                                Define variables that will be replaced when using this template.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Version History -->
+                {% if template.versions.exists %}
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Version History</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            {% for version in template.versions.all|slice:":5" %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">Version {{ version.version_number }}</h6>
+                                        <p class="mb-1">{{ version.change_description|default:"No description" }}</p>
+                                        <small class="text-muted">{{ version.created_at|timesince }} ago by {{ version.created_by.get_full_name }}</small>
+                                    </div>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="viewVersion({{ version.id }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning" onclick="restoreVersion({{ version.id }})">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if template.versions.count > 5 %}
+                        <div class="mt-3">
+                            <a href="{% url 'document_editor:template_versions' template.id %}" class="btn btn-sm btn-outline-primary">
+                                View All Versions ({{ template.versions.count }})
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Preview -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Preview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="template-preview" style="min-height: 200px; border: 1px solid #ddd; padding: 20px; background: white;">
+                            {{ template.content|safe }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <button type="submit" name="action" value="save" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save Changes
+                                </button>
+                                <button type="submit" name="action" value="save_and_test" class="btn btn-success">
+                                    <i class="fas fa-flask"></i> Save & Test
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-outline-info" onclick="testTemplate()">
+                                    <i class="fas fa-play"></i> Test Template
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="duplicateTemplate()">
+                                    <i class="fas fa-copy"></i> Duplicate
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="exportTemplate()">
+                                    <i class="fas fa-download"></i> Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4 mb-4">
+                <!-- Template Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Template Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Access Level -->
+                        <div class="mb-3">
+                            <label for="access_level" class="form-label">Access Level</label>
+                            <select class="form-control" id="access_level" name="access_level">
+                                <option value="private" {% if template.access_level == 'private' %}selected{% endif %}>Private (Only me)</option>
+                                <option value="team" {% if template.access_level == 'team' %}selected{% endif %}>Team (My organization)</option>
+                                <option value="public" {% if template.access_level == 'public' %}selected{% endif %}>Public (Everyone)</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                Controls who can view and use this template.
+                            </small>
+                        </div>
+
+                        <!-- Language -->
+                        <div class="mb-3">
+                            <label for="language" class="form-label">Language</label>
+                            <select class="form-control" id="language" name="language">
+                                <option value="en" {% if template.language == 'en' %}selected{% endif %}>English</option>
+                                <option value="es" {% if template.language == 'es' %}selected{% endif %}>Spanish</option>
+                                <option value="fr" {% if template.language == 'fr' %}selected{% endif %}>French</option>
+                                <option value="de" {% if template.language == 'de' %}selected{% endif %}>German</option>
+                                <option value="it" {% if template.language == 'it' %}selected{% endif %}>Italian</option>
+                                <option value="pt" {% if template.language == 'pt' %}selected{% endif %}>Portuguese</option>
+                            </select>
+                        </div>
+
+                        <!-- Tags -->
+                        <div class="mb-3">
+                            <label for="tags" class="form-label">Tags</label>
+                            <input type="text" class="form-control" id="tags" name="tags" 
+                                   value="{{ template.tags.all|join:', ' }}"
+                                   placeholder="contract, legal, business" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Separate tags with commas">
+                        </div>
+
+                        <!-- Version Control -->
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="enable_versioning" 
+                                   name="enable_versioning" {% if template.enable_versioning %}checked{% endif %}>
+                            <label class="form-check-label" for="enable_versioning">
+                                Enable Version Control
+                            </label>
+                        </div>
+
+                        <!-- Allow Comments -->
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="allow_comments" 
+                                   name="allow_comments" {% if template.allow_comments %}checked{% endif %}>
+                            <label class="form-check-label" for="allow_comments">
+                                Allow Comments & Reviews
+                            </label>
+                        </div>
+
+                        <!-- Auto-format -->
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="auto_format" 
+                                   name="auto_format" {% if template.auto_format %}checked{% endif %}>
+                            <label class="form-check-label" for="auto_format">
+                                Auto-format when creating documents
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Insertions -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Insertions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="insertPlaceholder('[DATE]')">
+                                <i class="fas fa-calendar"></i> Date
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="insertPlaceholder('[CLIENT_NAME]')">
+                                <i class="fas fa-user"></i> Client Name
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="insertPlaceholder('[COMPANY_NAME]')">
+                                <i class="fas fa-building"></i> Company Name
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="insertPlaceholder('[ADDRESS]')">
+                                <i class="fas fa-map-marker-alt"></i> Address
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="insertPlaceholder('[AMOUNT]')">
+                                <i class="fas fa-dollar-sign"></i> Amount
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="insertSignatureBlock()">
+                                <i class="fas fa-signature"></i> Signature Block
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Template Statistics -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h6 class="text-primary" id="word-count">{{ template.word_count|default:0 }}</h6>
+                                <small class="text-muted">Words</small>
+                            </div>
+                            <div class="col-6">
+                                <h6 class="text-success" id="variable-count">{{ template.variables.count|default:0 }}</h6>
+                                <small class="text-muted">Variables</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h6 class="text-info">{{ template.usage_count|default:0 }}</h6>
+                                <small class="text-muted">Times Used</small>
+                            </div>
+                            <div class="col-6">
+                                <h6 class="text-warning">{{ template.rating|default:0|floatformat:1 }}/5</h6>
+                                <small class="text-muted">Rating</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Template Info -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Template Info</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Created:</strong></td>
+                                <td>{{ template.created_at|date:"M j, Y H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Modified:</strong></td>
+                                <td>{{ template.updated_at|date:"M j, Y H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Author:</strong></td>
+                                <td>{{ template.created_by.get_full_name }}</td>
+                            </tr>
+                            {% if template.last_modified_by %}
+                            <tr>
+                                <td><strong>Last Editor:</strong></td>
+                                <td>{{ template.last_modified_by.get_full_name }}</td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <td><strong>Version:</strong></td>
+                                <td>{{ template.current_version|default:1 }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Test Template Modal -->
+<div class="modal fade" id="testModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Test Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="testForm">
+                    <div id="testVariables">
+                        <!-- Test variables will be populated here -->
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label">Preview:</label>
+                        <div id="testPreview" style="border: 1px solid #ddd; padding: 20px; min-height: 200px; background: white;">
+                            <!-- Test preview will be shown here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="createDocumentFromTest()">
+                    <i class="fas fa-file-plus"></i> Create Document
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Version Comparison Modal -->
+<div class="modal fade" id="versionModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Version Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="versionContent">
+                <!-- Version content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-warning" id="restoreVersionBtn" style="display: none;">
+                    <i class="fas fa-undo"></i> Restore This Version
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.ckeditor.com/ckeditor5/35.3.2/classic/ckeditor.js"></script>
+<script>
+let editor;
+let originalContent = `{{ template.content|escapejs }}`;
+
+// Initialize CKEditor
+ClassicEditor
+    .create(document.querySelector('#content-editor'), {
+        toolbar: [
+            'heading', '|',
+            'bold', 'italic', 'underline', '|',
+            'bulletedList', 'numberedList', '|',
+            'indent', 'outdent', '|',
+            'link', 'insertTable', '|',
+            'undo', 'redo'
+        ]
+    })
+    .then(editorInstance => {
+        editor = editorInstance;
+        
+        // Set initial content
+        editor.setData(originalContent);
+        
+        // Update preview and stats on content change
+        editor.model.document.on('change:data', () => {
+            updatePreview();
+            updateStats();
+            updateHiddenTextarea();
+        });
+        
+        // Initial update
+        updateStats();
+    })
+    .catch(error => {
+        console.error(error);
+    });
+
+function updatePreview() {
+    if (!editor) return;
+    
+    const content = editor.getData();
+    const preview = document.getElementById('template-preview');
+    
+    if (content.trim()) {
+        preview.innerHTML = content;
+    } else {
+        preview.innerHTML = '<p class="text-muted text-center">Start typing content above to see preview...</p>';
+    }
+}
+
+function updateStats() {
+    if (!editor) return;
+    
+    const content = editor.getData();
+    const text = content.replace(/<[^>]*>/g, ''); // Strip HTML
+    const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    
+    // Count variables (placeholders in square brackets)
+    const variables = (content.match(/\[[\w_]+\]/g) || []).length;
+    
+    document.getElementById('word-count').textContent = words;
+    document.getElementById('variable-count').textContent = variables;
+}
+
+function updateHiddenTextarea() {
+    if (editor) {
+        document.getElementById('content').value = editor.getData();
+    }
+}
+
+function addVariable() {
+    const container = document.getElementById('variablesContainer');
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2';
+    div.innerHTML = `
+        <input type="text" class="form-control" placeholder="Variable name (e.g., CLIENT_NAME)" 
+               name="variable_names[]">
+        <input type="text" class="form-control" placeholder="Description" 
+               name="variable_descriptions[]">
+        <button type="button" class="btn btn-outline-danger" onclick="removeVariable(this)">
+            <i class="fas fa-minus"></i>
+        </button>
+    `;
+    container.appendChild(div);
+}
+
+function removeVariable(button) {
+    button.closest('.input-group').remove();
+}
+
+function insertPlaceholder(placeholder) {
+    if (editor) {
+        const selection = editor.model.document.selection;
+        const position = selection.getFirstPosition();
+        
+        editor.model.change(writer => {
+            writer.insertText(placeholder, position);
+        });
+        
+        updateStats();
+    }
+}
+
+function insertSignatureBlock() {
+    const signatureBlock = `
+        <table style="width: 100%; margin-top: 50px;">
+            <tr>
+                <td style="width: 50%; border-bottom: 1px solid black; padding-bottom: 5px;">
+                    [CLIENT_NAME] Signature
+                </td>
+                <td style="width: 50%; border-bottom: 1px solid black; padding-bottom: 5px;">
+                    Date
+                </td>
+            </tr>
+            <tr>
+                <td style="padding-top: 20px; border-bottom: 1px solid black; padding-bottom: 5px;">
+                    [COMPANY_NAME] Signature
+                </td>
+                <td style="padding-top: 20px; border-bottom: 1px solid black; padding-bottom: 5px;">
+                    Date
+                </td>
+            </tr>
+        </table>
+    `;
+    
+    if (editor) {
+        const currentContent = editor.getData();
+        editor.setData(currentContent + signatureBlock);
+        updateStats();
+    }
+}
+
+function testTemplate() {
+    if (!editor) return;
+    
+    const content = editor.getData();
+    const variables = content.match(/\[[\w_]+\]/g) || [];
+    const uniqueVariables = [...new Set(variables)];
+    
+    // Populate test form
+    const testVariables = document.getElementById('testVariables');
+    testVariables.innerHTML = '';
+    
+    uniqueVariables.forEach(variable => {
+        const cleanVar = variable.replace(/[\[\]]/g, '');
+        const div = document.createElement('div');
+        div.className = 'mb-3';
+        div.innerHTML = `
+            <label class="form-label">${cleanVar}:</label>
+            <input type="text" class="form-control test-variable" 
+                   data-variable="${variable}" 
+                   placeholder="Enter value for ${cleanVar}">
+        `;
+        testVariables.appendChild(div);
+    });
+    
+    // Update preview on input
+    testVariables.addEventListener('input', updateTestPreview);
+    
+    // Initial preview
+    updateTestPreview();
+    
+    new bootstrap.Modal(document.getElementById('testModal')).show();
+}
+
+function updateTestPreview() {
+    const content = editor ? editor.getData() : '';
+    let preview = content;
+    
+    // Replace variables with test values
+    document.querySelectorAll('.test-variable').forEach(input => {
+        const variable = input.dataset.variable;
+        const value = input.value || `<span style="background: yellow;">${variable}</span>`;
+        preview = preview.replace(new RegExp(escapeRegExp(variable), 'g'), value);
+    });
+    
+    document.getElementById('testPreview').innerHTML = preview;
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function createDocumentFromTest() {
+    // Get test values
+    const testValues = {};
+    document.querySelectorAll('.test-variable').forEach(input => {
+        if (input.value) {
+            testValues[input.dataset.variable] = input.value;
+        }
+    });
+    
+    // Create document with template and values
+    const params = new URLSearchParams({
+        template_id: {{ template.id }},
+        test_values: JSON.stringify(testValues)
+    });
+    
+    window.location.href = `/document-editor/documents/create/?${params.toString()}`;
+}
+
+function duplicateTemplate() {
+    if (confirm('Create a copy of this template?')) {
+        fetch(`/document-editor/api/templates/{{ template.id }}/duplicate/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = `/document-editor/templates/${data.template_id}/edit/`;
+            } else {
+                alert('Error duplicating template: ' + data.error);
+            }
+        });
+    }
+}
+
+function exportTemplate() {
+    window.open(`/document-editor/api/templates/{{ template.id }}/export/`, '_blank');
+}
+
+function viewVersion(versionId) {
+    fetch(`/document-editor/api/template-versions/${versionId}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('versionContent').innerHTML = data.html;
+            document.getElementById('restoreVersionBtn').style.display = 'block';
+            document.getElementById('restoreVersionBtn').onclick = () => restoreVersion(versionId);
+            new bootstrap.Modal(document.getElementById('versionModal')).show();
+        }
+    });
+}
+
+function restoreVersion(versionId) {
+    if (confirm('Restore this version? Current changes will be saved as a new version.')) {
+        fetch(`/document-editor/api/template-versions/${versionId}/restore/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error restoring version: ' + data.error);
+            }
+        });
+    }
+}
+
+// Form submission
+document.getElementById('templateForm').addEventListener('submit', function(e) {
+    updateHiddenTextarea();
+    
+    // Validate required fields
+    if (!document.getElementById('name').value.trim()) {
+        e.preventDefault();
+        alert('Please enter a template name.');
+        return false;
+    }
+    
+    if (!document.getElementById('category').value) {
+        e.preventDefault();
+        alert('Please select a category.');
+        return false;
+    }
+    
+    if (!editor || !editor.getData().trim()) {
+        e.preventDefault();
+        alert('Please enter template content.');
+        return false;
+    }
+});
+
+// Auto-save functionality
+setInterval(() => {
+    if (editor && document.getElementById('name').value.trim()) {
+        updateHiddenTextarea();
+        
+        // Check if content has changed
+        if (editor.getData() !== originalContent) {
+            const formData = new FormData(document.getElementById('templateForm'));
+            formData.append('action', 'autosave');
+            
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update original content reference
+                    originalContent = editor.getData();
+                    console.log('Auto-saved');
+                }
+            })
+            .catch(error => {
+                console.log('Auto-save failed:', error);
+            });
+        }
+    }
+}, 30000); // Auto-save every 30 seconds
+
+// Warn user before leaving if there are unsaved changes
+window.addEventListener('beforeunload', function(e) {
+    if (editor && editor.getData() !== originalContent) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+    }
+});
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

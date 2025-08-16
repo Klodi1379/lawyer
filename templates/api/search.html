@@ -1,0 +1,641 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}API Document Search{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'document_editor/css/document-editor.css' %}">
+<style>
+.search-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.search-result {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    transition: box-shadow 0.2s;
+}
+.search-result:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.search-highlight {
+    background-color: #fff3cd;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+.search-stats {
+    background: #f8f9fa;
+    border-left: 4px solid #007bff;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+.filter-panel {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="search-container">
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center mb-4">
+                    <h1 class="h2 mb-2">🔍 Document Search API</h1>
+                    <p class="text-muted">Search through all documents using our powerful AI-enhanced search</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Form -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <form id="searchForm" class="mb-4">
+                            <div class="input-group input-group-lg">
+                                <input type="text" 
+                                       id="searchQuery" 
+                                       class="form-control" 
+                                       placeholder="Search documents, content, or ask a question..." 
+                                       value="{{ request.GET.q }}"
+                                       autocomplete="off">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Search
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Advanced Filters -->
+                        <div class="filter-panel" id="filterPanel" style="display: none;">
+                            <h6 class="mb-3">Advanced Filters</h6>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label for="documentType" class="form-label">Document Type</label>
+                                    <select id="documentType" class="form-control">
+                                        <option value="">All Types</option>
+                                        <option value="contract">Contract</option>
+                                        <option value="letter">Letter</option>
+                                        <option value="memo">Memo</option>
+                                        <option value="brief">Legal Brief</option>
+                                        <option value="motion">Motion</option>
+                                        <option value="pleading">Pleading</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="dateRange" class="form-label">Date Range</label>
+                                    <select id="dateRange" class="form-control">
+                                        <option value="">Any Time</option>
+                                        <option value="today">Today</option>
+                                        <option value="week">This Week</option>
+                                        <option value="month">This Month</option>
+                                        <option value="year">This Year</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="caseFilter" class="form-label">Case</label>
+                                    <select id="caseFilter" class="form-control">
+                                        <option value="">All Cases</option>
+                                        {% for case in available_cases %}
+                                        <option value="{{ case.id }}">{{ case.title|truncatechars:30 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="authorFilter" class="form-label">Author</label>
+                                    <select id="authorFilter" class="form-control">
+                                        <option value="">All Authors</option>
+                                        {% for author in available_authors %}
+                                        <option value="{{ author.id }}">{{ author.get_full_name|default:author.username }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input type="checkbox" id="aiEnhanced" class="form-check-input" checked>
+                                        <label for="aiEnhanced" class="form-check-label">
+                                            AI-Enhanced Search
+                                        </label>
+                                        <small class="form-text text-muted">Use artificial intelligence for better results</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input type="checkbox" id="contentSearch" class="form-check-input" checked>
+                                        <label for="contentSearch" class="form-check-label">
+                                            Search Document Content
+                                        </label>
+                                        <small class="form-text text-muted">Include document content in search</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleFilters()">
+                                <i class="fas fa-filter"></i> Advanced Filters
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="showSearchTips()">
+                                <i class="fas fa-question-circle"></i> Search Tips
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="clearSearch()">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Results -->
+        <div id="searchResults" class="row" style="display: none;">
+            <div class="col-12">
+                <!-- Search Statistics -->
+                <div class="search-stats">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong id="resultCount">0</strong> results found in <strong id="searchTime">0</strong>ms
+                        </div>
+                        <div>
+                            <small class="text-muted">
+                                Sort by: 
+                                <select id="sortBy" class="form-control form-control-sm d-inline-block w-auto">
+                                    <option value="relevance">Relevance</option>
+                                    <option value="date">Date</option>
+                                    <option value="title">Title</option>
+                                    <option value="author">Author</option>
+                                </select>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Container -->
+                <div id="resultsContainer">
+                    <!-- Results will be populated here -->
+                </div>
+
+                <!-- Load More Button -->
+                <div class="text-center mt-4" id="loadMoreContainer" style="display: none;">
+                    <button type="button" class="btn btn-outline-primary" onclick="loadMoreResults()">
+                        <i class="fas fa-plus"></i> Load More Results
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Results -->
+        <div id="noResults" class="row" style="display: none;">
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">No Results Found</h4>
+                    <p class="text-muted">Try adjusting your search terms or filters</p>
+                    <div class="mt-4">
+                        <h6>Search Suggestions:</h6>
+                        <ul class="list-unstyled">
+                            <li>• Use different keywords</li>
+                            <li>• Check spelling</li>
+                            <li>• Try broader terms</li>
+                            <li>• Use AI-enhanced search</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="row" style="display: none;">
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Searching...</span>
+                    </div>
+                    <p class="mt-3 text-muted">
+                        <span id="loadingText">Searching documents...</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Searches -->
+        <div class="row mt-4" id="recentSearches">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Recent Searches</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="recentSearchesList">
+                            <!-- Recent searches will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search Tips Modal -->
+<div class="modal fade" id="searchTipsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Search Tips & Tricks</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Basic Search:</h6>
+                        <ul>
+                            <li><code>contract</code> - Find documents containing "contract"</li>
+                            <li><code>"legal advice"</code> - Exact phrase search</li>
+                            <li><code>case AND client</code> - Both terms must be present</li>
+                            <li><code>motion OR filing</code> - Either term can be present</li>
+                        </ul>
+
+                        <h6>Advanced Search:</h6>
+                        <ul>
+                            <li><code>title:contract</code> - Search only in titles</li>
+                            <li><code>author:john</code> - Documents by specific author</li>
+                            <li><code>type:memo</code> - Search by document type</li>
+                            <li><code>date:2024</code> - Documents from specific year</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>AI-Enhanced Search:</h6>
+                        <ul>
+                            <li>Ask natural language questions</li>
+                            <li>"What are the terms of the ABC contract?"</li>
+                            <li>"Find all motions filed last month"</li>
+                            <li>"Show me legal briefs about employment law"</li>
+                        </ul>
+
+                        <h6>Tips:</h6>
+                        <ul>
+                            <li>Use wildcards: <code>contract*</code></li>
+                            <li>Exclude terms: <code>-draft</code></li>
+                            <li>Use filters for better results</li>
+                            <li>Try different synonyms</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+let currentQuery = '';
+let searchAbortController = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadRecentSearches();
+    
+    // Auto-search if query parameter exists
+    const urlParams = new URLSearchParams(window.location.search);
+    const query = urlParams.get('q');
+    if (query) {
+        document.getElementById('searchQuery').value = query;
+        performSearch();
+    }
+});
+
+document.getElementById('searchForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    performSearch();
+});
+
+function performSearch() {
+    const query = document.getElementById('searchQuery').value.trim();
+    
+    if (!query) {
+        alert('Please enter a search query');
+        return;
+    }
+
+    currentQuery = query;
+    currentPage = 1;
+
+    // Cancel previous search if still running
+    if (searchAbortController) {
+        searchAbortController.abort();
+    }
+    searchAbortController = new AbortController();
+
+    showLoading();
+    hideResults();
+
+    const searchParams = {
+        q: query,
+        document_type: document.getElementById('documentType').value,
+        date_range: document.getElementById('dateRange').value,
+        case_id: document.getElementById('caseFilter').value,
+        author_id: document.getElementById('authorFilter').value,
+        ai_enhanced: document.getElementById('aiEnhanced').checked,
+        content_search: document.getElementById('contentSearch').checked,
+        sort_by: document.getElementById('sortBy').value,
+        page: currentPage
+    };
+
+    fetch('/document-editor/api/search/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(searchParams),
+        signal: searchAbortController.signal
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        
+        if (data.success) {
+            displayResults(data.results);
+            updateSearchStats(data.total_count, data.search_time);
+            saveSearchToHistory(query);
+        } else {
+            showNoResults();
+            console.error('Search error:', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        if (error.name !== 'AbortError') {
+            showNoResults();
+            console.error('Search error:', error);
+        }
+    });
+}
+
+function displayResults(results) {
+    const container = document.getElementById('resultsContainer');
+    
+    if (currentPage === 1) {
+        container.innerHTML = '';
+    }
+
+    if (results.length === 0 && currentPage === 1) {
+        showNoResults();
+        return;
+    }
+
+    results.forEach(result => {
+        const resultElement = createResultElement(result);
+        container.appendChild(resultElement);
+    });
+
+    showResults();
+    
+    // Show/hide load more button
+    const loadMoreContainer = document.getElementById('loadMoreContainer');
+    if (results.length >= 10) {
+        loadMoreContainer.style.display = 'block';
+    } else {
+        loadMoreContainer.style.display = 'none';
+    }
+}
+
+function createResultElement(result) {
+    const div = document.createElement('div');
+    div.className = 'search-result';
+    
+    const typeIcon = getTypeIcon(result.document_type);
+    const highlightedTitle = highlightText(result.title, currentQuery);
+    const highlightedContent = highlightText(result.content_snippet, currentQuery);
+    
+    div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div class="flex-grow-1">
+                <h5 class="mb-1">
+                    <i class="fas fa-${typeIcon} text-primary me-2"></i>
+                    <a href="${result.url}" class="text-decoration-none">${highlightedTitle}</a>
+                </h5>
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-info me-2">${result.document_type || 'Document'}</span>
+                    <small class="text-muted">
+                        by ${result.author} • ${result.date} 
+                        ${result.case ? `• ${result.case}` : ''}
+                    </small>
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="btn-group btn-group-sm">
+                    <a href="${result.url}" class="btn btn-outline-primary">View</a>
+                    <a href="${result.edit_url}" class="btn btn-outline-secondary">Edit</a>
+                    <button type="button" class="btn btn-outline-info" onclick="previewDocument(${result.id})">
+                        Preview
+                    </button>
+                </div>
+            </div>
+        </div>
+        <p class="text-muted mb-2">${highlightedContent}</p>
+        ${result.ai_summary ? `<div class="alert alert-info py-2 mb-2"><small><strong>AI Summary:</strong> ${result.ai_summary}</small></div>` : ''}
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-success">
+                    <i class="fas fa-chart-line me-1"></i>
+                    Relevance: ${Math.round(result.relevance_score * 100)}%
+                </small>
+                ${result.tags ? result.tags.map(tag => `<span class="badge badge-light ms-1">${tag}</span>`).join('') : ''}
+            </div>
+            <div>
+                <button type="button" class="btn btn-sm btn-outline-warning" onclick="saveDocument(${result.id})">
+                    <i class="fas fa-bookmark"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success" onclick="shareDocument(${result.id})">
+                    <i class="fas fa-share"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    return div;
+}
+
+function getTypeIcon(type) {
+    const icons = {
+        'contract': 'file-contract',
+        'letter': 'envelope',
+        'memo': 'sticky-note',
+        'brief': 'file-alt',
+        'motion': 'gavel',
+        'pleading': 'balance-scale'
+    };
+    return icons[type] || 'file-alt';
+}
+
+function highlightText(text, query) {
+    if (!text || !query) return text;
+    
+    const words = query.split(' ').filter(word => word.length > 2);
+    let highlighted = text;
+    
+    words.forEach(word => {
+        const regex = new RegExp(`(${word})`, 'gi');
+        highlighted = highlighted.replace(regex, '<span class="search-highlight">$1</span>');
+    });
+    
+    return highlighted;
+}
+
+function updateSearchStats(totalCount, searchTime) {
+    document.getElementById('resultCount').textContent = totalCount;
+    document.getElementById('searchTime').textContent = searchTime;
+}
+
+function showLoading() {
+    document.getElementById('loadingIndicator').style.display = 'block';
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('noResults').style.display = 'none';
+    
+    // Animate loading text
+    const loadingTexts = [
+        'Searching documents...',
+        'Analyzing content...',
+        'Processing with AI...',
+        'Ranking results...'
+    ];
+    
+    let textIndex = 0;
+    const loadingInterval = setInterval(() => {
+        const loadingText = document.getElementById('loadingText');
+        if (loadingText) {
+            loadingText.textContent = loadingTexts[textIndex % loadingTexts.length];
+            textIndex++;
+        } else {
+            clearInterval(loadingInterval);
+        }
+    }, 800);
+}
+
+function hideLoading() {
+    document.getElementById('loadingIndicator').style.display = 'none';
+}
+
+function showResults() {
+    document.getElementById('searchResults').style.display = 'block';
+    document.getElementById('recentSearches').style.display = 'none';
+}
+
+function hideResults() {
+    document.getElementById('searchResults').style.display = 'none';
+}
+
+function showNoResults() {
+    document.getElementById('noResults').style.display = 'block';
+    document.getElementById('searchResults').style.display = 'none';
+}
+
+function toggleFilters() {
+    const panel = document.getElementById('filterPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function showSearchTips() {
+    new bootstrap.Modal(document.getElementById('searchTipsModal')).show();
+}
+
+function clearSearch() {
+    document.getElementById('searchQuery').value = '';
+    document.getElementById('documentType').value = '';
+    document.getElementById('dateRange').value = '';
+    document.getElementById('caseFilter').value = '';
+    document.getElementById('authorFilter').value = '';
+    document.getElementById('aiEnhanced').checked = true;
+    document.getElementById('contentSearch').checked = true;
+    
+    hideResults();
+    document.getElementById('noResults').style.display = 'none';
+    document.getElementById('recentSearches').style.display = 'block';
+}
+
+function loadMoreResults() {
+    currentPage++;
+    performSearch();
+}
+
+function saveSearchToHistory(query) {
+    let searches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
+    searches = searches.filter(s => s !== query); // Remove if exists
+    searches.unshift(query); // Add to beginning
+    searches = searches.slice(0, 5); // Keep only 5
+    localStorage.setItem('recentSearches', JSON.stringify(searches));
+    loadRecentSearches();
+}
+
+function loadRecentSearches() {
+    const searches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
+    const container = document.getElementById('recentSearchesList');
+    
+    if (searches.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No recent searches</p>';
+        return;
+    }
+    
+    container.innerHTML = searches.map(query => 
+        `<button type="button" class="btn btn-outline-secondary btn-sm me-2 mb-2" onclick="searchFromHistory('${query}')">${query}</button>`
+    ).join('');
+}
+
+function searchFromHistory(query) {
+    document.getElementById('searchQuery').value = query;
+    performSearch();
+}
+
+// Document actions
+function previewDocument(docId) {
+    // Implementation for document preview
+    alert('Preview functionality will be implemented');
+}
+
+function saveDocument(docId) {
+    // Implementation for saving/bookmarking document
+    alert('Save functionality will be implemented');
+}
+
+function shareDocument(docId) {
+    // Implementation for sharing document
+    alert('Share functionality will be implemented');
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Sort change handler
+document.getElementById('sortBy').addEventListener('change', function() {
+    if (currentQuery) {
+        performSearch();
+    }
+});
+
+// Auto-complete functionality
+let autoCompleteTimeout;
+document.getElementById('searchQuery').addEventListener('input', function() {
+    clearTimeout(autoCompleteTimeout);
+    const query = this.value.trim();
+    
+    if (query.length > 2) {
+        autoCompleteTimeout = setTimeout(() => {
+            // Implement auto-complete suggestions
+        }, 500);
+    }
+});
+</script>
+{% endblock %}

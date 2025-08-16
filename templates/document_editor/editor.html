@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AI Document Editor{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'document_editor/css/document-editor.css' %}">
+<style>
+#editor-container {
+    min-height: 500px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+.ai-panel {
+    background: #f8f9fa;
+    border-left: 3px solid #007bff;
+}
+.ai-suggestion {
+    background: #e3f2fd;
+    border-left: 3px solid #2196f3;
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 4px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">🤖 AI Document Editor</h1>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-success" onclick="saveDocument()">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="generateContent()">
+                        <i class="fas fa-magic"></i> AI Generate
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="previewDocument()">
+                        <i class="fas fa-eye"></i> Preview
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Editor -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <input type="text" id="document-title" class="form-control" placeholder="Document Title" value="{{ document.title|default:'' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <select id="document-type" class="form-control">
+                                <option value="">Select Type</option>
+                                <option value="contract">Contract</option>
+                                <option value="letter">Letter</option>
+                                <option value="memo">Memo</option>
+                                <option value="brief">Legal Brief</option>
+                                <option value="motion">Motion</option>
+                                <option value="pleading">Pleading</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select id="template-select" class="form-control">
+                                <option value="">Load Template</option>
+                                {% for template in available_templates %}
+                                <option value="{{ template.id }}">{{ template.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="editor-container">
+                        {{ document.content|default:"Start typing your document here..." }}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <span id="word-count">0</span> words | 
+                                <span id="char-count">0</span> characters
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted">
+                                Last saved: <span id="last-saved">Never</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Assistant Panel -->
+        <div class="col-lg-4">
+            <div class="card ai-panel">
+                <div class="card-header">
+                    <h5 class="mb-0">🤖 AI Assistant</h5>
+                </div>
+                <div class="card-body">
+                    <!-- AI Prompt Input -->
+                    <div class="mb-3">
+                        <label for="ai-prompt" class="form-label">Ask AI to help:</label>
+                        <textarea id="ai-prompt" class="form-control" rows="3" placeholder="e.g., 'Write a professional letter introduction' or 'Add a termination clause'"></textarea>
+                        <button type="button" class="btn btn-primary btn-sm mt-2" onclick="processAIRequest()">
+                            <i class="fas fa-magic"></i> Generate
+                        </button>
+                    </div>
+
+                    <!-- AI Suggestions -->
+                    <div id="ai-suggestions">
+                        <h6>Quick Actions:</h6>
+                        <div class="btn-group-vertical w-100 mb-3">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="quickAI('improve_grammar')">
+                                <i class="fas fa-spell-check"></i> Improve Grammar
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="quickAI('make_formal')">
+                                <i class="fas fa-user-tie"></i> Make More Formal
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="quickAI('summarize')">
+                                <i class="fas fa-compress-alt"></i> Summarize
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="quickAI('add_clause')">
+                                <i class="fas fa-plus"></i> Add Legal Clause
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- AI Response Area -->
+                    <div id="ai-response" class="ai-suggestion" style="display: none;">
+                        <h6>AI Suggestion:</h6>
+                        <div id="ai-content"></div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-success btn-sm" onclick="acceptAISuggestion()">
+                                <i class="fas fa-check"></i> Accept
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="rejectAISuggestion()">
+                                <i class="fas fa-times"></i> Reject
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Info -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Document Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label for="case-select" class="form-label small">Related Case:</label>
+                        <select id="case-select" class="form-control form-control-sm">
+                            <option value="">Select Case</option>
+                            {% for case in available_cases %}
+                            <option value="{{ case.id }}">{{ case.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label for="client-select" class="form-label small">Client:</label>
+                        <select id="client-select" class="form-control form-control-sm">
+                            <option value="">Select Client</option>
+                            {% for client in available_clients %}
+                            <option value="{{ client.id }}">{{ client.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label for="document-tags" class="form-label small">Tags:</label>
+                        <input type="text" id="document-tags" class="form-control form-control-sm" placeholder="contract, urgent, draft">
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="is-template" class="form-check-input">
+                        <label for="is-template" class="form-check-label small">Save as Template</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Templates -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Recent Templates</h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_templates %}
+                        {% for template in recent_templates %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small>{{ template.name|truncatechars:20 }}</small>
+                            <button type="button" class="btn btn-outline-primary btn-xs" onclick="loadTemplate({{ template.id }})">
+                                Load
+                            </button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <small class="text-muted">No templates available</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Document Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="preview-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="exportDocument()">
+                    <i class="fas fa-download"></i> Export PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'document_editor/js/document-editor.js' %}"></script>
+<script>
+// Initialize editor
+let editor;
+let currentDocument = {{ document.id|default:'null' }};
+let aiSuggestion = '';
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEditor();
+    updateWordCount();
+    autoSave();
+});
+
+function initializeEditor() {
+    // Initialize rich text editor (could use CKEditor, TinyMCE, or Quill)
+    editor = document.getElementById('editor-container');
+    editor.contentEditable = true;
+    editor.addEventListener('input', updateWordCount);
+}
+
+function updateWordCount() {
+    const text = editor.innerText || editor.textContent || '';
+    const words = text.trim().split(/\s+/).length;
+    const chars = text.length;
+    
+    document.getElementById('word-count').textContent = words;
+    document.getElementById('char-count').textContent = chars;
+}
+
+function saveDocument() {
+    const title = document.getElementById('document-title').value;
+    const content = editor.innerHTML;
+    const documentType = document.getElementById('document-type').value;
+    const caseId = document.getElementById('case-select').value;
+    const clientId = document.getElementById('client-select').value;
+    const tags = document.getElementById('document-tags').value;
+    const isTemplate = document.getElementById('is-template').checked;
+
+    // Show loading
+    showLoading('Saving document...');
+
+    fetch('/document-editor/api/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({
+            id: currentDocument,
+            title: title,
+            content: content,
+            document_type: documentType,
+            case_id: caseId,
+            client_id: clientId,
+            tags: tags,
+            is_template: isTemplate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            currentDocument = data.document_id;
+            document.getElementById('last-saved').textContent = new Date().toLocaleTimeString();
+            showAlert('Document saved successfully!', 'success');
+        } else {
+            showAlert('Error saving document: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showAlert('Error saving document: ' + error, 'danger');
+    });
+}
+
+function processAIRequest() {
+    const prompt = document.getElementById('ai-prompt').value;
+    const selectedText = window.getSelection().toString();
+    
+    if (!prompt.trim()) {
+        showAlert('Please enter a prompt for AI assistance.', 'warning');
+        return;
+    }
+
+    showLoading('AI is processing your request...');
+
+    fetch('/document-editor/api/ai-assist/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({
+            prompt: prompt,
+            context: editor.innerHTML,
+            selected_text: selectedText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            aiSuggestion = data.suggestion;
+            document.getElementById('ai-content').innerHTML = data.suggestion;
+            document.getElementById('ai-response').style.display = 'block';
+        } else {
+            showAlert('AI request failed: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showAlert('AI request failed: ' + error, 'danger');
+    });
+}
+
+function quickAI(action) {
+    const selectedText = window.getSelection().toString();
+    const prompts = {
+        'improve_grammar': 'Improve the grammar and readability of this text',
+        'make_formal': 'Make this text more formal and professional',
+        'summarize': 'Provide a concise summary of this text',
+        'add_clause': 'Add appropriate legal clauses for this document type'
+    };
+
+    document.getElementById('ai-prompt').value = prompts[action];
+    processAIRequest();
+}
+
+function acceptAISuggestion() {
+    if (aiSuggestion) {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            selection.deleteFromDocument();
+            selection.getRangeAt(0).insertNode(document.createTextNode(aiSuggestion));
+        } else {
+            editor.innerHTML += aiSuggestion;
+        }
+        
+        document.getElementById('ai-response').style.display = 'none';
+        document.getElementById('ai-prompt').value = '';
+        updateWordCount();
+        showAlert('AI suggestion applied!', 'success');
+    }
+}
+
+function rejectAISuggestion() {
+    document.getElementById('ai-response').style.display = 'none';
+    document.getElementById('ai-prompt').value = '';
+}
+
+function previewDocument() {
+    const title = document.getElementById('document-title').value || 'Untitled Document';
+    const content = editor.innerHTML;
+    
+    document.getElementById('preview-content').innerHTML = `
+        <h3>${title}</h3>
+        <hr>
+        ${content}
+    `;
+    
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+function autoSave() {
+    setInterval(() => {
+        if (currentDocument && editor.innerHTML.trim()) {
+            saveDocument();
+        }
+    }, 30000); // Auto-save every 30 seconds
+}
+
+function loadTemplate(templateId) {
+    fetch(`/document-editor/api/template/${templateId}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            editor.innerHTML = data.content;
+            document.getElementById('document-title').value = data.name;
+            updateWordCount();
+            showAlert('Template loaded successfully!', 'success');
+        }
+    });
+}
+
+// Utility functions
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+function showLoading(message) {
+    // Implementation for loading indicator
+}
+
+function hideLoading() {
+    // Implementation to hide loading indicator
+}
+
+function showAlert(message, type) {
+    // Implementation for alert notifications
+    console.log(`${type}: ${message}`);
+}
+</script>
+{% endblock %}

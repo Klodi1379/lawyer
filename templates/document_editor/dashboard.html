@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Document Editor Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'document_editor/css/document-editor.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">📝 Document Editor Dashboard</h1>
+                <div class="btn-group">
+                    <a href="{% url 'document_editor:editor' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> New Document
+                    </a>
+                    <a href="{% url 'document_editor:document_upload' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-upload"></i> Upload
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Quick Stats -->
+        <div class="col-md-3 mb-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ total_documents|default:0 }}</h4>
+                            <p class="card-text">Total Documents</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-file-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ active_templates|default:0 }}</h4>
+                            <p class="card-text">Templates</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-layer-group fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ pending_signatures|default:0 }}</h4>
+                            <p class="card-text">Pending Signatures</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-signature fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ active_workflows|default:0 }}</h4>
+                            <p class="card-text">Active Workflows</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-project-diagram fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Recent Documents -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Documents</h5>
+                    <a href="{% url 'document_editor:document_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_documents %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Document</th>
+                                        <th>Type</th>
+                                        <th>Modified</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for document in recent_documents %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'document_editor:document_detail' document.id %}">
+                                                {{ document.title|truncatechars:30 }}
+                                            </a>
+                                        </td>
+                                        <td><span class="badge badge-secondary">{{ document.document_type|default:"Document" }}</span></td>
+                                        <td>{{ document.updated_at|timesince }} ago</td>
+                                        <td>
+                                            {% if document.is_published %}
+                                                <span class="badge badge-success">Published</span>
+                                            {% else %}
+                                                <span class="badge badge-warning">Draft</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'document_editor:document_edit' document.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No documents yet. <a href="{% url 'document_editor:editor' %}">Create your first document</a></p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <a href="{% url 'document_editor:editor' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-plus text-primary me-2"></i>
+                            Create New Document
+                        </a>
+                        <a href="{% url 'document_editor:template_create' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-layer-group text-success me-2"></i>
+                            Create Template
+                        </a>
+                        <a href="{% url 'document_editor:signature_requests' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-signature text-warning me-2"></i>
+                            Signature Requests
+                        </a>
+                        <a href="{% url 'document_editor:workflow_dashboard' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-project-diagram text-info me-2"></i>
+                            Manage Workflows
+                        </a>
+                        <a href="{% url 'document_editor:reports_index' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-chart-bar text-secondary me-2"></i>
+                            View Reports
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activity %}
+                        {% for activity in recent_activity %}
+                        <div class="d-flex mb-3">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-circle text-primary" style="font-size: 0.5rem;"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <p class="mb-1 small">{{ activity.description }}</p>
+                                <small class="text-muted">{{ activity.created_at|timesince }} ago</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted small">No recent activity</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'document_editor/js/document-editor.js' %}"></script>
+{% endblock %}

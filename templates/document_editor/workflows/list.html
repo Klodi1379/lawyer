@@ -1,0 +1,479 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Document Workflows - Legal Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+.workflow-card {
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+    position: relative;
+}
+.workflow-card:hover {
+    transform: translateY(-2px);
+}
+.workflow-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+.workflow-step {
+    border-left: 3px solid #007bff;
+    padding-left: 15px;
+    margin-bottom: 15px;
+    position: relative;
+}
+.workflow-step::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 6px;
+    width: 10px;
+    height: 10px;
+    background: #007bff;
+    border-radius: 50%;
+}
+.workflow-step.completed::before {
+    background: #28a745;
+}
+.workflow-step.in-progress::before {
+    background: #ffc107;
+}
+.workflow-step.pending::before {
+    background: #6c757d;
+}
+.workflow-progress {
+    height: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.workflow-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff, #28a745);
+    transition: width 0.3s ease;
+}
+.template-preview {
+    max-height: 100px;
+    overflow: hidden;
+    position: relative;
+}
+.template-preview::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(to bottom, transparent, white);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'document_editor:dashboard' %}">Document Editor</a></li>
+                            <li class="breadcrumb-item active">Workflows</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">🔄 Document Workflows</h1>
+                    <p class="text-muted">Automate your document creation and approval processes</p>
+                </div>
+                <div>
+                    <a href="{% url 'document_editor:workflow_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create Workflow
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ total_workflows|default:0 }}</h4>
+                            <p class="card-text">Total Workflows</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-sitemap fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ active_workflows|default:0 }}</h4>
+                            <p class="card-text">Active Workflows</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-play fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ pending_tasks|default:0 }}</h4>
+                            <p class="card-text">Pending Tasks</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-clock fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ completed_today|default:0 }}</h4>
+                            <p class="card-text">Completed Today</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter and Search -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="search" class="form-control" placeholder="Search workflows..." value="{{ request.GET.search }}">
+                        </div>
+                        <div class="col-md-2">
+                            <select name="status" class="form-control">
+                                <option value="">All Status</option>
+                                <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+                                <option value="paused" {% if request.GET.status == 'paused' %}selected{% endif %}>Paused</option>
+                                <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>Completed</option>
+                                <option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="category" class="form-control">
+                                <option value="">All Categories</option>
+                                <option value="approval" {% if request.GET.category == 'approval' %}selected{% endif %}>Approval</option>
+                                <option value="review" {% if request.GET.category == 'review' %}selected{% endif %}>Review</option>
+                                <option value="collaboration" {% if request.GET.category == 'collaboration' %}selected{% endif %}>Collaboration</option>
+                                <option value="automation" {% if request.GET.category == 'automation' %}selected{% endif %}>Automation</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="assignee" class="form-control">
+                                <option value="">All Assignees</option>
+                                <option value="me" {% if request.GET.assignee == 'me' %}selected{% endif %}>Assigned to Me</option>
+                                {% for user in team_members %}
+                                <option value="{{ user.id }}" {% if request.GET.assignee == user.id|stringformat:'s' %}selected{% endif %}>
+                                    {{ user.get_full_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workflows List -->
+    <div class="row">
+        {% for workflow in workflows %}
+        <div class="col-lg-6 col-xl-4 mb-4">
+            <div class="card workflow-card h-100">
+                <span class="workflow-status">
+                    {% if workflow.status == 'active' %}
+                        <span class="badge bg-success">Active</span>
+                    {% elif workflow.status == 'paused' %}
+                        <span class="badge bg-warning">Paused</span>
+                    {% elif workflow.status == 'completed' %}
+                        <span class="badge bg-primary">Completed</span>
+                    {% elif workflow.status == 'archived' %}
+                        <span class="badge bg-secondary">Archived</span>
+                    {% else %}
+                        <span class="badge bg-info">{{ workflow.get_status_display }}</span>
+                    {% endif %}
+                </span>
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{% url 'document_editor:workflow_detail' workflow.id %}" class="text-decoration-none">
+                            {{ workflow.name }}
+                        </a>
+                    </h5>
+                    <p class="card-text text-muted">{{ workflow.description|truncatechars:100 }}</p>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">Progress</small>
+                            <small class="text-muted">{{ workflow.progress_percentage }}%</small>
+                        </div>
+                        <div class="workflow-progress">
+                            <div class="workflow-progress-bar" style="width: {{ workflow.progress_percentage }}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Current Step -->
+                    {% if workflow.current_step %}
+                    <div class="mb-3">
+                        <small class="text-muted">Current Step:</small>
+                        <div class="fw-bold">{{ workflow.current_step.name }}</div>
+                        {% if workflow.current_step.assignee %}
+                            <small class="text-muted">Assigned to: {{ workflow.current_step.assignee.get_full_name }}</small>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Template Preview -->
+                    {% if workflow.template %}
+                    <div class="mb-3">
+                        <small class="text-muted">Template:</small>
+                        <div class="template-preview">
+                            <a href="{% url 'document_editor:template_detail' workflow.template.id %}" class="text-decoration-none">
+                                <strong>{{ workflow.template.name }}</strong>
+                            </a>
+                            <div class="small text-muted mt-1">{{ workflow.template.description|truncatechars:50 }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Workflow Info -->
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="h6 mb-0">{{ workflow.steps.count }}</div>
+                            <small class="text-muted">Steps</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="h6 mb-0">{{ workflow.documents.count }}</div>
+                            <small class="text-muted">Documents</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="h6 mb-0">{{ workflow.participants.count }}</div>
+                            <small class="text-muted">Participants</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            Created {{ workflow.created_at|timesince }} ago
+                        </small>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'document_editor:workflow_detail' workflow.id %}" class="btn btn-outline-primary" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'document_editor:workflow_edit' workflow.id %}" class="btn btn-outline-secondary" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% if workflow.status == 'active' %}
+                            <button type="button" class="btn btn-outline-warning" onclick="pauseWorkflow({{ workflow.id }})" title="Pause">
+                                <i class="fas fa-pause"></i>
+                            </button>
+                            {% elif workflow.status == 'paused' %}
+                            <button type="button" class="btn btn-outline-success" onclick="resumeWorkflow({{ workflow.id }})" title="Resume">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            {% endif %}
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'document_editor:workflow_duplicate' workflow.id %}">
+                                        <i class="fas fa-copy"></i> Duplicate
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="exportWorkflow({{ workflow.id }})">
+                                        <i class="fas fa-download"></i> Export
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="#" onclick="deleteWorkflow({{ workflow.id }})">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-sitemap fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">No Workflows Found</h5>
+                <p class="text-muted">
+                    {% if request.GET.search or request.GET.status or request.GET.category %}
+                        No workflows match your current filters. 
+                        <a href="{% url 'document_editor:workflow_list' %}">Clear filters</a>
+                    {% else %}
+                        Create your first workflow to automate document processes.
+                    {% endif %}
+                </p>
+                <a href="{% url 'document_editor:workflow_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Create First Workflow
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if workflows.has_other_pages %}
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="Workflows pagination">
+                <ul class="pagination justify-content-center">
+                    {% if workflows.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ workflows.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">Previous</a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in workflows.paginator.page_range %}
+                        {% if workflows.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > workflows.number|add:'-3' and num < workflows.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if workflows.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ workflows.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">Next</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function pauseWorkflow(workflowId) {
+    if (confirm('Pause this workflow? All active tasks will be paused.')) {
+        fetch(`/document-editor/workflows/${workflowId}/pause/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Workflow paused successfully!');
+                location.reload();
+            } else {
+                alert('Error pausing workflow: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error pausing workflow: ' + error);
+        });
+    }
+}
+
+function resumeWorkflow(workflowId) {
+    if (confirm('Resume this workflow?')) {
+        fetch(`/document-editor/workflows/${workflowId}/resume/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Workflow resumed successfully!');
+                location.reload();
+            } else {
+                alert('Error resuming workflow: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error resuming workflow: ' + error);
+        });
+    }
+}
+
+function exportWorkflow(workflowId) {
+    window.open(`/document-editor/workflows/${workflowId}/export/`, '_blank');
+}
+
+function deleteWorkflow(workflowId) {
+    if (confirm('Are you sure you want to delete this workflow? This action cannot be undone.')) {
+        fetch(`/document-editor/workflows/${workflowId}/delete/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Workflow deleted successfully!');
+                location.reload();
+            } else {
+                alert('Error deleting workflow: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error deleting workflow: ' + error);
+        });
+    }
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Auto-submit form on select change
+document.querySelectorAll('select[name="status"], select[name="category"], select[name="assignee"]').forEach(select => {
+    select.addEventListener('change', function() {
+        this.form.submit();
+    });
+});
+</script>
+{% endblock %}

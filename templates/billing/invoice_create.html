@@ -1,0 +1,851 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Invoice - Legal Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+.invoice-preview {
+    background: white;
+    border: 1px solid #ddd;
+    padding: 30px;
+    font-family: 'Times New Roman', serif;
+}
+.line-item-row {
+    border-bottom: 1px solid #f8f9fa;
+}
+.time-entry-selector {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+}
+.time-entry-item {
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+}
+.time-entry-item:hover {
+    background-color: #f8f9fa;
+}
+.time-entry-item.selected {
+    background-color: #e3f2fd;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'cases:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'billing:invoice_list' %}">Invoices</a></li>
+                            <li class="breadcrumb-item active">Create</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">📄 Create Invoice</h1>
+                </div>
+                <div>
+                    <a href="{% url 'billing:invoice_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Invoices
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="invoiceForm">
+        {% csrf_token %}
+        <div class="row">
+            <!-- Main Form -->
+            <div class="col-lg-8 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Invoice Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Client Selection -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="client" class="form-label">Client <span class="text-danger">*</span></label>
+                                <select class="form-control" id="client" name="client" required onchange="loadClientCases()">
+                                    <option value="">Select Client</option>
+                                    {% for client in clients %}
+                                    <option value="{{ client.id }}">{{ client.name }} - {{ client.company|default:"Individual" }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="case" class="form-label">Case (Optional)</label>
+                                <select class="form-control" id="case" name="case" onchange="loadTimeEntries()">
+                                    <option value="">Select Case</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Invoice Information -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="invoice_number" class="form-label">Invoice Number</label>
+                                <input type="text" class="form-control" id="invoice_number" name="invoice_number" 
+                                       value="{{ next_invoice_number }}" readonly>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="issue_date" class="form-label">Issue Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="issue_date" name="issue_date" 
+                                       value="{{ today|date:'Y-m-d' }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="due_date" class="form-label">Due Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="due_date" name="due_date" required>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="2" 
+                                      placeholder="Brief description of services provided..."></textarea>
+                        </div>
+
+                        <!-- Time Entries Selection -->
+                        <div class="mb-3" id="timeEntriesSection" style="display: none;">
+                            <label class="form-label">Billable Time Entries</label>
+                            <div class="time-entry-selector" id="timeEntriesContainer">
+                                <!-- Time entries will be loaded here -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary mt-2" onclick="addSelectedTimeEntries()">
+                                <i class="fas fa-plus"></i> Add Selected Entries
+                            </button>
+                        </div>
+
+                        <!-- Line Items -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0">Invoice Items</label>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addLineItem()">
+                                    <i class="fas fa-plus"></i> Add Item
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-borderless" id="lineItemsTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="40%">Description</th>
+                                            <th width="15%">Quantity</th>
+                                            <th width="15%">Rate</th>
+                                            <th width="15%">Amount</th>
+                                            <th width="10%">Tax</th>
+                                            <th width="5%"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="lineItemsBody">
+                                        <tr class="line-item-row">
+                                            <td>
+                                                <input type="text" class="form-control" name="line_items[0][description]" 
+                                                       placeholder="Legal services provided..." required>
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control quantity" name="line_items[0][quantity]" 
+                                                       value="1" step="0.01" min="0" onchange="calculateLineTotal(this)" required>
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control rate" name="line_items[0][rate]" 
+                                                       step="0.01" min="0" onchange="calculateLineTotal(this)" required>
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control amount" name="line_items[0][amount]" 
+                                                       step="0.01" readonly>
+                                            </td>
+                                            <td>
+                                                <select class="form-control tax" name="line_items[0][tax_rate]" onchange="calculateLineTotal(this)">
+                                                    <option value="0">No Tax</option>
+                                                    <option value="5">5%</option>
+                                                    <option value="10">10%</option>
+                                                    <option value="15">15%</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLineItem(this)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Totals -->
+                        <div class="row">
+                            <div class="col-md-8"></div>
+                            <div class="col-md-4">
+                                <table class="table">
+                                    <tr>
+                                        <td><strong>Subtotal:</strong></td>
+                                        <td class="text-end">$<span id="subtotal">0.00</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Tax:</strong></td>
+                                        <td class="text-end">$<span id="total_tax">0.00</span></td>
+                                    </tr>
+                                    <tr class="table-primary">
+                                        <td><strong>Total:</strong></td>
+                                        <td class="text-end"><strong>$<span id="total_amount">0.00</span></strong></td>
+                                    </tr>
+                                </table>
+                                <input type="hidden" name="subtotal" id="subtotal_input">
+                                <input type="hidden" name="tax_amount" id="tax_amount_input">
+                                <input type="hidden" name="total_amount" id="total_amount_input">
+                            </div>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                      placeholder="Payment terms, additional notes..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <button type="submit" name="action" value="save_draft" class="btn btn-secondary">
+                                    <i class="fas fa-save"></i> Save as Draft
+                                </button>
+                                <button type="submit" name="action" value="save_and_send" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane"></i> Save & Send
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-outline-info" onclick="previewInvoice()">
+                                    <i class="fas fa-eye"></i> Preview
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4 mb-4">
+                <!-- Invoice Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Invoice Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Payment Terms -->
+                        <div class="mb-3">
+                            <label for="payment_terms" class="form-label">Payment Terms</label>
+                            <select class="form-control" id="payment_terms" name="payment_terms" onchange="updateDueDate()">
+                                <option value="0">Due on Receipt</option>
+                                <option value="15">Net 15</option>
+                                <option value="30" selected>Net 30</option>
+                                <option value="60">Net 60</option>
+                                <option value="90">Net 90</option>
+                            </select>
+                        </div>
+
+                        <!-- Currency -->
+                        <div class="mb-3">
+                            <label for="currency" class="form-label">Currency</label>
+                            <select class="form-control" id="currency" name="currency">
+                                <option value="USD">USD - US Dollar</option>
+                                <option value="EUR">EUR - Euro</option>
+                                <option value="GBP">GBP - British Pound</option>
+                                <option value="CAD">CAD - Canadian Dollar</option>
+                            </select>
+                        </div>
+
+                        <!-- Late Fee -->
+                        <div class="mb-3">
+                            <label for="late_fee" class="form-label">Late Fee (%)</label>
+                            <input type="number" class="form-control" id="late_fee" name="late_fee" 
+                                   step="0.1" min="0" max="50" value="1.5">
+                        </div>
+
+                        <!-- Discount -->
+                        <div class="row">
+                            <div class="col-6">
+                                <label for="discount_type" class="form-label">Discount Type</label>
+                                <select class="form-control" id="discount_type" name="discount_type" onchange="calculateTotals()">
+                                    <option value="none">No Discount</option>
+                                    <option value="percentage">Percentage</option>
+                                    <option value="amount">Fixed Amount</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label for="discount_value" class="form-label">Discount Value</label>
+                                <input type="number" class="form-control" id="discount_value" name="discount_value" 
+                                       step="0.01" min="0" onchange="calculateTotals()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Client Information -->
+                <div class="card mt-4" id="clientInfoCard" style="display: none;">
+                    <div class="card-header">
+                        <h5 class="mb-0">Client Information</h5>
+                    </div>
+                    <div class="card-body" id="clientInfoBody">
+                        <!-- Client info will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Templates -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Invoice Templates</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('legal_services')">
+                                Legal Services
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('consultation')">
+                                Consultation
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('retainer')">
+                                Retainer
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadTemplate('court_appearance')">
+                                Court Appearance
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Invoices -->
+                {% if recent_invoices %}
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Invoices</h5>
+                    </div>
+                    <div class="card-body">
+                        {% for invoice in recent_invoices %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <strong>{{ invoice.invoice_number }}</strong>
+                                <br><small class="text-muted">{{ invoice.client.name }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold">${{ invoice.total_amount|floatformat:2 }}</span>
+                                <br><small class="text-muted">{{ invoice.issue_date|date:"M j" }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Invoice Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="invoice-preview" id="invoicePreview">
+                    <!-- Invoice preview will be generated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="exportPreviewPDF()">
+                    <i class="fas fa-download"></i> Export PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let lineItemCounter = 1;
+let selectedTimeEntries = [];
+
+// Calculate line item total
+function calculateLineTotal(element) {
+    const row = element.closest('tr');
+    const quantity = parseFloat(row.querySelector('.quantity').value) || 0;
+    const rate = parseFloat(row.querySelector('.rate').value) || 0;
+    const amount = quantity * rate;
+    
+    row.querySelector('.amount').value = amount.toFixed(2);
+    calculateTotals();
+}
+
+// Calculate invoice totals
+function calculateTotals() {
+    let subtotal = 0;
+    let totalTax = 0;
+    
+    document.querySelectorAll('.line-item-row').forEach(row => {
+        const amount = parseFloat(row.querySelector('.amount').value) || 0;
+        const taxRate = parseFloat(row.querySelector('.tax').value) || 0;
+        const tax = amount * (taxRate / 100);
+        
+        subtotal += amount;
+        totalTax += tax;
+    });
+    
+    // Apply discount
+    const discountType = document.getElementById('discount_type').value;
+    const discountValue = parseFloat(document.getElementById('discount_value').value) || 0;
+    let discount = 0;
+    
+    if (discountType === 'percentage') {
+        discount = subtotal * (discountValue / 100);
+    } else if (discountType === 'amount') {
+        discount = discountValue;
+    }
+    
+    const discountedSubtotal = Math.max(0, subtotal - discount);
+    const total = discountedSubtotal + totalTax;
+    
+    document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+    document.getElementById('total_tax').textContent = totalTax.toFixed(2);
+    document.getElementById('total_amount').textContent = total.toFixed(2);
+    
+    document.getElementById('subtotal_input').value = subtotal.toFixed(2);
+    document.getElementById('tax_amount_input').value = totalTax.toFixed(2);
+    document.getElementById('total_amount_input').value = total.toFixed(2);
+}
+
+// Add new line item
+function addLineItem() {
+    const tbody = document.getElementById('lineItemsBody');
+    const newRow = document.createElement('tr');
+    newRow.className = 'line-item-row';
+    newRow.innerHTML = `
+        <td>
+            <input type="text" class="form-control" name="line_items[${lineItemCounter}][description]" 
+                   placeholder="Service description..." required>
+        </td>
+        <td>
+            <input type="number" class="form-control quantity" name="line_items[${lineItemCounter}][quantity]" 
+                   value="1" step="0.01" min="0" onchange="calculateLineTotal(this)" required>
+        </td>
+        <td>
+            <input type="number" class="form-control rate" name="line_items[${lineItemCounter}][rate]" 
+                   step="0.01" min="0" onchange="calculateLineTotal(this)" required>
+        </td>
+        <td>
+            <input type="number" class="form-control amount" name="line_items[${lineItemCounter}][amount]" 
+                   step="0.01" readonly>
+        </td>
+        <td>
+            <select class="form-control tax" name="line_items[${lineItemCounter}][tax_rate]" onchange="calculateLineTotal(this)">
+                <option value="0">No Tax</option>
+                <option value="5">5%</option>
+                <option value="10">10%</option>
+                <option value="15">15%</option>
+            </select>
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLineItem(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(newRow);
+    lineItemCounter++;
+}
+
+// Remove line item
+function removeLineItem(button) {
+    const row = button.closest('tr');
+    row.remove();
+    calculateTotals();
+}
+
+// Load client cases
+function loadClientCases() {
+    const clientId = document.getElementById('client').value;
+    const caseSelect = document.getElementById('case');
+    
+    caseSelect.innerHTML = '<option value="">Select Case</option>';
+    
+    if (clientId) {
+        fetch(`/api/clients/${clientId}/cases/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                data.cases.forEach(case_item => {
+                    const option = document.createElement('option');
+                    option.value = case_item.id;
+                    option.textContent = case_item.title;
+                    caseSelect.appendChild(option);
+                });
+                
+                // Load client info
+                loadClientInfo(data.client);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading cases:', error);
+        });
+    }
+    
+    document.getElementById('timeEntriesSection').style.display = 'none';
+}
+
+// Load client information
+function loadClientInfo(client) {
+    const clientInfoCard = document.getElementById('clientInfoCard');
+    const clientInfoBody = document.getElementById('clientInfoBody');
+    
+    clientInfoBody.innerHTML = `
+        <table class="table table-sm">
+            <tr>
+                <td><strong>Name:</strong></td>
+                <td>${client.name}</td>
+            </tr>
+            ${client.company ? `<tr><td><strong>Company:</strong></td><td>${client.company}</td></tr>` : ''}
+            <tr>
+                <td><strong>Email:</strong></td>
+                <td>${client.email}</td>
+            </tr>
+            ${client.phone ? `<tr><td><strong>Phone:</strong></td><td>${client.phone}</td></tr>` : ''}
+            ${client.address ? `<tr><td><strong>Address:</strong></td><td>${client.address}</td></tr>` : ''}
+        </table>
+    `;
+    
+    clientInfoCard.style.display = 'block';
+}
+
+// Load time entries
+function loadTimeEntries() {
+    const caseId = document.getElementById('case').value;
+    const timeEntriesSection = document.getElementById('timeEntriesSection');
+    const timeEntriesContainer = document.getElementById('timeEntriesContainer');
+    
+    if (caseId) {
+        fetch(`/api/cases/${caseId}/time-entries/?billable=true&uninvoiced=true`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.time_entries.length > 0) {
+                timeEntriesContainer.innerHTML = '';
+                data.time_entries.forEach(entry => {
+                    const div = document.createElement('div');
+                    div.className = 'time-entry-item';
+                    div.dataset.entryId = entry.id;
+                    div.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${entry.description}</strong>
+                                <br><small class="text-muted">${entry.date} - ${entry.hours}h @ $${entry.rate}/hr</small>
+                            </div>
+                            <div class="text-end">
+                                <strong>$${(entry.hours * entry.rate).toFixed(2)}</strong>
+                            </div>
+                        </div>
+                    `;
+                    div.onclick = () => toggleTimeEntry(div);
+                    timeEntriesContainer.appendChild(div);
+                });
+                timeEntriesSection.style.display = 'block';
+            } else {
+                timeEntriesSection.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading time entries:', error);
+            timeEntriesSection.style.display = 'none';
+        });
+    } else {
+        timeEntriesSection.style.display = 'none';
+    }
+}
+
+// Toggle time entry selection
+function toggleTimeEntry(element) {
+    element.classList.toggle('selected');
+}
+
+// Add selected time entries to invoice
+function addSelectedTimeEntries() {
+    const selectedEntries = document.querySelectorAll('.time-entry-item.selected');
+    
+    selectedEntries.forEach(entry => {
+        const entryId = entry.dataset.entryId;
+        
+        // Extract entry data (in real implementation, this would come from the API)
+        const description = entry.querySelector('strong').textContent;
+        const hoursMatch = entry.textContent.match(/(\d+\.?\d*)h/);
+        const rateMatch = entry.textContent.match(/\$(\d+\.?\d*)\/hr/);
+        
+        if (hoursMatch && rateMatch) {
+            const hours = parseFloat(hoursMatch[1]);
+            const rate = parseFloat(rateMatch[1]);
+            
+            addLineItemWithData(description, hours, rate);
+        }
+        
+        entry.remove();
+    });
+    
+    calculateTotals();
+}
+
+// Add line item with data
+function addLineItemWithData(description, quantity, rate) {
+    const tbody = document.getElementById('lineItemsBody');
+    const newRow = document.createElement('tr');
+    newRow.className = 'line-item-row';
+    newRow.innerHTML = `
+        <td>
+            <input type="text" class="form-control" name="line_items[${lineItemCounter}][description]" 
+                   value="${description}" required>
+        </td>
+        <td>
+            <input type="number" class="form-control quantity" name="line_items[${lineItemCounter}][quantity]" 
+                   value="${quantity}" step="0.01" min="0" onchange="calculateLineTotal(this)" required>
+        </td>
+        <td>
+            <input type="number" class="form-control rate" name="line_items[${lineItemCounter}][rate]" 
+                   value="${rate}" step="0.01" min="0" onchange="calculateLineTotal(this)" required>
+        </td>
+        <td>
+            <input type="number" class="form-control amount" name="line_items[${lineItemCounter}][amount]" 
+                   value="${(quantity * rate).toFixed(2)}" step="0.01" readonly>
+        </td>
+        <td>
+            <select class="form-control tax" name="line_items[${lineItemCounter}][tax_rate]" onchange="calculateLineTotal(this)">
+                <option value="0">No Tax</option>
+                <option value="5">5%</option>
+                <option value="10">10%</option>
+                <option value="15">15%</option>
+            </select>
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLineItem(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(newRow);
+    lineItemCounter++;
+}
+
+// Update due date based on payment terms
+function updateDueDate() {
+    const issueDate = new Date(document.getElementById('issue_date').value);
+    const paymentTerms = parseInt(document.getElementById('payment_terms').value);
+    
+    if (issueDate && !isNaN(paymentTerms)) {
+        const dueDate = new Date(issueDate);
+        dueDate.setDate(dueDate.getDate() + paymentTerms);
+        
+        document.getElementById('due_date').value = dueDate.toISOString().split('T')[0];
+    }
+}
+
+// Load invoice template
+function loadTemplate(templateType) {
+    const templates = {
+        'legal_services': {
+            description: 'Legal services provided',
+            items: [
+                { description: 'Legal consultation and advice', quantity: 5, rate: 300 },
+                { description: 'Document review and preparation', quantity: 3, rate: 250 }
+            ]
+        },
+        'consultation': {
+            description: 'Legal consultation services',
+            items: [
+                { description: 'Initial consultation', quantity: 2, rate: 350 }
+            ]
+        },
+        'retainer': {
+            description: 'Retainer fee for ongoing legal services',
+            items: [
+                { description: 'Monthly retainer fee', quantity: 1, rate: 5000 }
+            ]
+        },
+        'court_appearance': {
+            description: 'Court appearance and representation',
+            items: [
+                { description: 'Court appearance', quantity: 1, rate: 1500 },
+                { description: 'Case preparation', quantity: 8, rate: 300 }
+            ]
+        }
+    };
+    
+    const template = templates[templateType];
+    if (template) {
+        document.getElementById('description').value = template.description;
+        
+        // Clear existing line items
+        document.getElementById('lineItemsBody').innerHTML = '';
+        lineItemCounter = 0;
+        
+        // Add template items
+        template.items.forEach(item => {
+            addLineItemWithData(item.description, item.quantity, item.rate);
+        });
+        
+        calculateTotals();
+    }
+}
+
+// Preview invoice
+function previewInvoice() {
+    const clientName = document.getElementById('client').selectedOptions[0]?.text || 'Client Name';
+    const invoiceNumber = document.getElementById('invoice_number').value;
+    const issueDate = document.getElementById('issue_date').value;
+    const dueDate = document.getElementById('due_date').value;
+    const description = document.getElementById('description').value;
+    const notes = document.getElementById('notes').value;
+    const subtotal = document.getElementById('subtotal').textContent;
+    const totalTax = document.getElementById('total_tax').textContent;
+    const total = document.getElementById('total_amount').textContent;
+    
+    // Build line items HTML
+    let lineItemsHTML = '';
+    document.querySelectorAll('.line-item-row').forEach(row => {
+        const desc = row.querySelector('input[name*="[description]"]').value;
+        const qty = row.querySelector('.quantity').value;
+        const rate = row.querySelector('.rate').value;
+        const amount = row.querySelector('.amount').value;
+        
+        lineItemsHTML += `
+            <tr>
+                <td>${desc}</td>
+                <td class="text-center">${qty}</td>
+                <td class="text-end">$${parseFloat(rate).toFixed(2)}</td>
+                <td class="text-end">$${parseFloat(amount).toFixed(2)}</td>
+            </tr>
+        `;
+    });
+    
+    const previewHTML = `
+        <div class="text-center mb-4">
+            <h2>INVOICE</h2>
+            <p class="text-muted">Invoice #${invoiceNumber}</p>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-6">
+                <strong>Bill To:</strong><br>
+                ${clientName}
+            </div>
+            <div class="col-6 text-end">
+                <strong>Issue Date:</strong> ${issueDate}<br>
+                <strong>Due Date:</strong> ${dueDate}
+            </div>
+        </div>
+        
+        ${description ? `<div class="mb-4"><strong>Description:</strong><br>${description}</div>` : ''}
+        
+        <table class="table">
+            <thead class="table-light">
+                <tr>
+                    <th>Description</th>
+                    <th class="text-center">Quantity</th>
+                    <th class="text-end">Rate</th>
+                    <th class="text-end">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${lineItemsHTML}
+            </tbody>
+        </table>
+        
+        <div class="row">
+            <div class="col-8"></div>
+            <div class="col-4">
+                <table class="table">
+                    <tr>
+                        <td>Subtotal:</td>
+                        <td class="text-end">$${subtotal}</td>
+                    </tr>
+                    <tr>
+                        <td>Tax:</td>
+                        <td class="text-end">$${totalTax}</td>
+                    </tr>
+                    <tr class="table-primary">
+                        <td><strong>Total:</strong></td>
+                        <td class="text-end"><strong>$${total}</strong></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        ${notes ? `<div class="mt-4"><strong>Notes:</strong><br>${notes}</div>` : ''}
+    `;
+    
+    document.getElementById('invoicePreview').innerHTML = previewHTML;
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+function exportPreviewPDF() {
+    // This would generate a PDF of the invoice
+    alert('PDF export functionality will be implemented');
+}
+
+// Form validation
+document.getElementById('invoiceForm').addEventListener('submit', function(e) {
+    const client = document.getElementById('client').value;
+    const lineItems = document.querySelectorAll('.line-item-row');
+    
+    if (!client) {
+        e.preventDefault();
+        alert('Please select a client.');
+        return false;
+    }
+    
+    if (lineItems.length === 0) {
+        e.preventDefault();
+        alert('Please add at least one line item.');
+        return false;
+    }
+    
+    // Validate line items
+    let validLineItems = 0;
+    lineItems.forEach(row => {
+        const desc = row.querySelector('input[name*="[description]"]').value.trim();
+        const qty = parseFloat(row.querySelector('.quantity').value);
+        const rate = parseFloat(row.querySelector('.rate').value);
+        
+        if (desc && qty > 0 && rate >= 0) {
+            validLineItems++;
+        }
+    });
+    
+    if (validLineItems === 0) {
+        e.preventDefault();
+        alert('Please ensure all line items have valid description, quantity, and rate.');
+        return false;
+    }
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateDueDate();
+    calculateTotals();
+    
+    // Update due date when issue date changes
+    document.getElementById('issue_date').addEventListener('change', updateDueDate);
+});
+</script>
+{% endblock %}

@@ -148,11 +148,22 @@ class AdvancedInvoice(models.Model):
         ('cancelled', 'Anuluar'),
     ]
     
+    PAYMENT_TERMS_CHOICES = [
+        ('net_15', 'Net 15 days'),
+        ('net_30', 'Net 30 days'),
+        ('net_60', 'Net 60 days'),
+        ('due_on_receipt', 'Due on receipt'),
+    ]
+
     # Basic info
     invoice_number = models.CharField(max_length=50, unique=True, verbose_name="Numri i Faturës")
     case = models.ForeignKey(Case, related_name="advanced_invoices", on_delete=models.CASCADE)
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
     
+    # Description and terms
+    description = models.TextField(blank=True, verbose_name="Përshkrimi")
+    payment_terms = models.CharField(max_length=20, choices=PAYMENT_TERMS_CHOICES, default='net_30', verbose_name="Kushtet e Pagesës")
+
     # Dates
     issue_date = models.DateField(default=timezone.now, verbose_name="Data e Lëshimit")
     due_date = models.DateField(verbose_name="Data e Scadencës")

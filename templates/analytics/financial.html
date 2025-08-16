@@ -1,0 +1,578 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Financial Analytics - Legal Manager{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.metric-card {
+    transition: transform 0.2s ease-in-out;
+}
+.metric-card:hover {
+    transform: translateY(-2px);
+}
+.chart-container {
+    position: relative;
+    height: 400px;
+    margin-bottom: 30px;
+}
+.kpi-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+.trend-up {
+    color: #28a745;
+}
+.trend-down {
+    color: #dc3545;
+}
+.trend-neutral {
+    color: #6c757d;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'cases:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'analytics:overview' %}">Analytics</a></li>
+                            <li class="breadcrumb-item active">Financial</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">💰 Financial Analytics</h1>
+                </div>
+                <div>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="period" id="period_month" value="month" checked>
+                        <label class="btn btn-outline-primary" for="period_month">Month</label>
+                        
+                        <input type="radio" class="btn-check" name="period" id="period_quarter" value="quarter">
+                        <label class="btn btn-outline-primary" for="period_quarter">Quarter</label>
+                        
+                        <input type="radio" class="btn-check" name="period" id="period_year" value="year">
+                        <label class="btn btn-outline-primary" for="period_year">Year</label>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary ms-2" onclick="exportReport()">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Financial Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card metric-card h-100">
+                <div class="card-body text-center">
+                    <div class="text-primary mb-2">
+                        <i class="fas fa-dollar-sign fa-2x"></i>
+                    </div>
+                    <div class="kpi-value text-primary">${{ total_revenue|default:0|floatformat:0 }}</div>
+                    <h6 class="card-title">Total Revenue</h6>
+                    <div class="d-flex justify-content-center align-items-center">
+                        <span class="trend-{{ revenue_trend.direction }} me-1">
+                            {% if revenue_trend.direction == 'up' %}
+                                <i class="fas fa-arrow-up"></i>
+                            {% else %}
+                                <i class="fas fa-arrow-down"></i>
+                            {% endif %}
+                            {{ revenue_trend.percentage|default:0 }}%
+                        </span>
+                        <small class="text-muted">vs last period</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card metric-card h-100">
+                <div class="card-body text-center">
+                    <div class="text-success mb-2">
+                        <i class="fas fa-coins fa-2x"></i>
+                    </div>
+                    <div class="kpi-value text-success">${{ total_expenses|default:0|floatformat:0 }}</div>
+                    <h6 class="card-title">Total Expenses</h6>
+                    <div class="d-flex justify-content-center align-items-center">
+                        <span class="trend-{{ expenses_trend.direction }} me-1">
+                            {% if expenses_trend.direction == 'up' %}
+                                <i class="fas fa-arrow-up"></i>
+                            {% else %}
+                                <i class="fas fa-arrow-down"></i>
+                            {% endif %}
+                            {{ expenses_trend.percentage|default:0 }}%
+                        </span>
+                        <small class="text-muted">vs last period</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card metric-card h-100">
+                <div class="card-body text-center">
+                    <div class="text-info mb-2">
+                        <i class="fas fa-chart-line fa-2x"></i>
+                    </div>
+                    <div class="kpi-value text-info">${{ net_profit|default:0|floatformat:0 }}</div>
+                    <h6 class="card-title">Net Profit</h6>
+                    <div class="d-flex justify-content-center align-items-center">
+                        <span class="trend-{{ profit_trend.direction }} me-1">
+                            {% if profit_trend.direction == 'up' %}
+                                <i class="fas fa-arrow-up"></i>
+                            {% else %}
+                                <i class="fas fa-arrow-down"></i>
+                            {% endif %}
+                            {{ profit_trend.percentage|default:0 }}%
+                        </span>
+                        <small class="text-muted">vs last period</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card metric-card h-100">
+                <div class="card-body text-center">
+                    <div class="text-warning mb-2">
+                        <i class="fas fa-percentage fa-2x"></i>
+                    </div>
+                    <div class="kpi-value text-warning">{{ profit_margin|default:0|floatformat:1 }}%</div>
+                    <h6 class="card-title">Profit Margin</h6>
+                    <div class="d-flex justify-content-center align-items-center">
+                        <span class="trend-{{ margin_trend.direction }} me-1">
+                            {% if margin_trend.direction == 'up' %}
+                                <i class="fas fa-arrow-up"></i>
+                            {% else %}
+                                <i class="fas fa-arrow-down"></i>
+                            {% endif %}
+                            {{ margin_trend.percentage|default:0 }}%
+                        </span>
+                        <small class="text-muted">vs last period</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue vs Expenses Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Revenue vs Expenses Trend</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="revenueExpensesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Breakdown -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Revenue by Practice Area</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="revenueByAreaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Expense Categories</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="expenseCategoriesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outstanding Invoices -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Outstanding Invoices</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-3">
+                        <div class="col-4">
+                            <h5 class="text-warning">${{ outstanding_total|default:0|floatformat:0 }}</h5>
+                            <small class="text-muted">Total Outstanding</small>
+                        </div>
+                        <div class="col-4">
+                            <h5 class="text-danger">{{ overdue_count|default:0 }}</h5>
+                            <small class="text-muted">Overdue</small>
+                        </div>
+                        <div class="col-4">
+                            <h5 class="text-info">{{ avg_collection_days|default:0 }}</h5>
+                            <small class="text-muted">Avg Days</small>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="outstandingChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Payment Methods</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="paymentMethodsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Summary Table -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Monthly Financial Summary</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleTable()">
+                        <i class="fas fa-table"></i> Toggle Details
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="financialTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Revenue</th>
+                                    <th>Expenses</th>
+                                    <th>Net Profit</th>
+                                    <th>Margin %</th>
+                                    <th>Cases Closed</th>
+                                    <th>Avg Case Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for month_data in monthly_summary %}
+                                <tr>
+                                    <td>{{ month_data.month|date:"M Y" }}</td>
+                                    <td class="text-success">${{ month_data.revenue|floatformat:0 }}</td>
+                                    <td class="text-danger">${{ month_data.expenses|floatformat:0 }}</td>
+                                    <td class="{% if month_data.profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                        ${{ month_data.profit|floatformat:0 }}
+                                    </td>
+                                    <td>{{ month_data.margin|floatformat:1 }}%</td>
+                                    <td>{{ month_data.cases_closed }}</td>
+                                    <td>${{ month_data.avg_case_value|floatformat:0 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">No data available for the selected period</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Budget vs Actual -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Budget vs Actual Performance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="budgetChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Chart.js configurations
+Chart.defaults.responsive = true;
+Chart.defaults.maintainAspectRatio = false;
+
+// Revenue vs Expenses Chart
+const revenueExpensesCtx = document.getElementById('revenueExpensesChart').getContext('2d');
+const revenueExpensesChart = new Chart(revenueExpensesCtx, {
+    type: 'line',
+    data: {
+        labels: {{ revenue_expenses_labels|safe }},
+        datasets: [{
+            label: 'Revenue',
+            data: {{ revenue_data|safe }},
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            tension: 0.4
+        }, {
+            label: 'Expenses',
+            data: {{ expenses_data|safe }},
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+            tension: 0.4
+        }]
+    },
+    options: {
+        plugins: {
+            title: {
+                display: true,
+                text: 'Revenue vs Expenses Over Time'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toLocaleString();
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Revenue by Practice Area Chart
+const revenueByAreaCtx = document.getElementById('revenueByAreaChart').getContext('2d');
+const revenueByAreaChart = new Chart(revenueByAreaCtx, {
+    type: 'doughnut',
+    data: {
+        labels: {{ practice_area_labels|safe }},
+        datasets: [{
+            data: {{ practice_area_revenue|safe }},
+            backgroundColor: [
+                '#FF6384',
+                '#36A2EB',
+                '#FFCE56',
+                '#4BC0C0',
+                '#9966FF',
+                '#FF9F40'
+            ]
+        }]
+    },
+    options: {
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Expense Categories Chart
+const expenseCategoriesCtx = document.getElementById('expenseCategoriesChart').getContext('2d');
+const expenseCategoriesChart = new Chart(expenseCategoriesCtx, {
+    type: 'pie',
+    data: {
+        labels: {{ expense_category_labels|safe }},
+        datasets: [{
+            data: {{ expense_category_data|safe }},
+            backgroundColor: [
+                '#FF9999',
+                '#66B2FF',
+                '#99FF99',
+                '#FFCC99',
+                '#FF99CC',
+                '#99CCFF'
+            ]
+        }]
+    },
+    options: {
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Outstanding Invoices Chart
+const outstandingCtx = document.getElementById('outstandingChart').getContext('2d');
+const outstandingChart = new Chart(outstandingCtx, {
+    type: 'bar',
+    data: {
+        labels: ['Current', '30 Days', '60 Days', '90+ Days'],
+        datasets: [{
+            label: 'Outstanding Amount',
+            data: {{ outstanding_aging_data|safe }},
+            backgroundColor: [
+                '#28a745',
+                '#ffc107',
+                '#fd7e14',
+                '#dc3545'
+            ]
+        }]
+    },
+    options: {
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toLocaleString();
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Payment Methods Chart
+const paymentMethodsCtx = document.getElementById('paymentMethodsChart').getContext('2d');
+const paymentMethodsChart = new Chart(paymentMethodsCtx, {
+    type: 'polarArea',
+    data: {
+        labels: {{ payment_method_labels|safe }},
+        datasets: [{
+            data: {{ payment_method_data|safe }},
+            backgroundColor: [
+                '#4BC0C0',
+                '#36A2EB',
+                '#FFCE56',
+                '#FF6384',
+                '#9966FF'
+            ]
+        }]
+    },
+    options: {
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Budget vs Actual Chart
+const budgetCtx = document.getElementById('budgetChart').getContext('2d');
+const budgetChart = new Chart(budgetCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ budget_labels|safe }},
+        datasets: [{
+            label: 'Budget',
+            data: {{ budget_data|safe }},
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            borderColor: 'rgb(54, 162, 235)',
+            borderWidth: 1
+        }, {
+            label: 'Actual',
+            data: {{ actual_data|safe }},
+            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+            borderColor: 'rgb(255, 99, 132)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        plugins: {
+            title: {
+                display: true,
+                text: 'Budget vs Actual Performance'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toLocaleString();
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Period filter change handler
+document.querySelectorAll('input[name="period"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        updateChartsForPeriod(this.value);
+    });
+});
+
+function updateChartsForPeriod(period) {
+    // Fetch new data based on period
+    fetch(`/analytics/financial/data/?period=${period}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update all charts with new data
+            updateAllCharts(data);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching data:', error);
+    });
+}
+
+function updateAllCharts(data) {
+    // Update revenue vs expenses chart
+    revenueExpensesChart.data.labels = data.revenue_expenses_labels;
+    revenueExpensesChart.data.datasets[0].data = data.revenue_data;
+    revenueExpensesChart.data.datasets[1].data = data.expenses_data;
+    revenueExpensesChart.update();
+    
+    // Update other charts similarly...
+    // This would be implemented based on the actual data structure
+}
+
+function exportReport() {
+    const period = document.querySelector('input[name="period"]:checked').value;
+    window.open(`/analytics/financial/export/?period=${period}&format=pdf`, '_blank');
+}
+
+function toggleTable() {
+    const table = document.getElementById('financialTable');
+    const tbody = table.querySelector('tbody');
+    
+    if (tbody.style.display === 'none') {
+        tbody.style.display = '';
+    } else {
+        tbody.style.display = 'none';
+    }
+}
+
+// Auto-refresh data every 5 minutes
+setInterval(() => {
+    const period = document.querySelector('input[name="period"]:checked').value;
+    updateChartsForPeriod(period);
+}, 300000);
+</script>
+{% endblock %}

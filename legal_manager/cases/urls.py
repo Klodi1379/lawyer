@@ -52,6 +52,14 @@ from .views_billing import (
 from .views_analytics import AnalyticsDashboardView, analytics_dashboard
 from .views_portal import ClientPortalView, client_portal_dashboard
 
+# Enhanced Analytics Views
+from .views_analytics_enhanced import (
+    AnalyticsDashboardView as EnhancedAnalyticsDashboardView,
+    analytics_api, case_analytics_api, financial_analytics_api,
+    productivity_analytics_api, team_analytics_api, export_analytics_pdf,
+    analytics_widget_api, refresh_analytics_cache
+)
+
 # LLM and AI Views
 from .llm_views import (
     DocumentEditorView, llm_chat_api, document_save_api, document_export_api,
@@ -196,9 +204,20 @@ urlpatterns = [
     path('billing/payments/<int:payment_id>/receipt/', payment_receipt, name='payment_receipt'),
     path('billing/payments/export/', export_payments, name='export_payments'),
     
-    # Analytics URLs
-    path('analytics/', AnalyticsDashboardView.as_view(), name='analytics_dashboard'),
+    # Analytics URLs - Enhanced
+    path('analytics/', EnhancedAnalyticsDashboardView.as_view(), name='analytics_dashboard'),
     path('analytics/dashboard/', analytics_dashboard, name='analytics_dashboard_func'),
+    path('analytics/enhanced/', EnhancedAnalyticsDashboardView.as_view(), name='enhanced_analytics'),
+    
+    # Analytics API Endpoints
+    path('analytics/api/', analytics_api, name='analytics_api'),
+    path('analytics/api/cases/', case_analytics_api, name='case_analytics_api'),
+    path('analytics/api/financial/', financial_analytics_api, name='financial_analytics_api'),
+    path('analytics/api/productivity/', productivity_analytics_api, name='productivity_analytics_api'),
+    path('analytics/api/team/', team_analytics_api, name='team_analytics_api'),
+    path('analytics/api/widget/<str:widget_type>/', analytics_widget_api, name='analytics_widget_api'),
+    path('analytics/api/refresh/', refresh_analytics_cache, name='refresh_analytics_cache'),
+    path('analytics/export/pdf/', export_analytics_pdf, name='export_analytics_pdf'),
     
     # Client Portal URLs
     path('portal/', ClientPortalView.as_view(), name='client_portal'),

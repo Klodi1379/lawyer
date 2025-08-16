@@ -1,0 +1,434 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Client Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+.client-card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    transition: transform 0.2s;
+}
+.client-card:hover {
+    transform: translateY(-2px);
+}
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+.status-active { background-color: #28a745; }
+.status-pending { background-color: #ffc107; }
+.status-closed { background-color: #6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-0">👋 Welcome, {{ user.get_full_name|default:user.username }}</h1>
+                    <p class="text-muted mb-0">Client Portal Dashboard</p>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted">Last login: {{ user.last_login|date:"M j, Y H:i" }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card client-card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ total_cases|default:0 }}</h4>
+                            <p class="card-text">Active Cases</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-briefcase fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card client-card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ total_documents|default:0 }}</h4>
+                            <p class="card-text">Documents</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-file-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card client-card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">${{ outstanding_balance|default:0|floatformat:2 }}</h4>
+                            <p class="card-text">Outstanding</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-dollar-sign fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card client-card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ upcoming_events|default:0 }}</h4>
+                            <p class="card-text">Upcoming Events</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-calendar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Cases Overview -->
+        <div class="col-lg-8 mb-4">
+            <div class="card client-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Your Cases</h5>
+                    <a href="{% url 'client_portal:cases' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_cases %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Case</th>
+                                        <th>Status</th>
+                                        <th>Assigned Lawyer</th>
+                                        <th>Last Update</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for case in recent_cases %}
+                                    <tr>
+                                        <td>
+                                            <div>
+                                                <strong>{{ case.title }}</strong><br>
+                                                <small class="text-muted">{{ case.case_number }}</small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="status-indicator status-{{ case.status|lower }}"></span>
+                                            {{ case.get_status_display }}
+                                        </td>
+                                        <td>
+                                            {% if case.assigned_lawyer %}
+                                                {{ case.assigned_lawyer.get_full_name }}
+                                            {% else %}
+                                                <span class="text-muted">Unassigned</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ case.updated_at|timesince }} ago</small>
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'client_portal:case_detail' case.id %}" class="btn btn-sm btn-outline-primary">
+                                                View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No cases assigned yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="col-lg-4 mb-4">
+            <div class="card client-card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activity %}
+                        {% for activity in recent_activity %}
+                        <div class="d-flex mb-3">
+                            <div class="flex-shrink-0">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px; font-size: 14px;">
+                                    <i class="fas fa-{{ activity.icon|default:'bell' }}"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <p class="mb-1 small">{{ activity.description }}</p>
+                                <small class="text-muted">{{ activity.timestamp|timesince }} ago</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center">No recent activity</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card client-card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'client_portal:documents' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-file-alt me-2"></i>View Documents
+                        </a>
+                        <a href="{% url 'client_portal:invoices' %}" class="btn btn-outline-success">
+                            <i class="fas fa-file-invoice me-2"></i>View Invoices
+                        </a>
+                        <a href="{% url 'client_portal:messages' %}" class="btn btn-outline-info">
+                            <i class="fas fa-envelope me-2"></i>Messages
+                            {% if unread_messages %}
+                                <span class="badge bg-danger">{{ unread_messages }}</span>
+                            {% endif %}
+                        </a>
+                        <button type="button" class="btn btn-outline-warning" onclick="requestConsultation()">
+                            <i class="fas fa-calendar-plus me-2"></i>Request Meeting
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Events -->
+    {% if upcoming_events_list %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card client-card">
+                <div class="card-header">
+                    <h5 class="mb-0">Upcoming Events</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for event in upcoming_events_list %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border-start border-primary border-4">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ event.title }}</h6>
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar me-1"></i>{{ event.start_time|date:"M j, Y" }}<br>
+                                            <i class="fas fa-clock me-1"></i>{{ event.start_time|time:"H:i" }}
+                                            {% if event.location %}
+                                                <br><i class="fas fa-map-marker-alt me-1"></i>{{ event.location }}
+                                            {% endif %}
+                                        </small>
+                                    </p>
+                                    {% if event.case %}
+                                        <span class="badge bg-light text-dark">{{ event.case.title|truncatechars:20 }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Documents -->
+    {% if recent_documents %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card client-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Documents</h5>
+                    <a href="{% url 'client_portal:documents' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Document</th>
+                                    <th>Case</th>
+                                    <th>Uploaded</th>
+                                    <th>Size</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for document in recent_documents %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-file-alt text-primary me-2"></i>
+                                        {{ document.filename|truncatechars:30 }}
+                                    </td>
+                                    <td>
+                                        {% if document.case %}
+                                            <a href="{% url 'client_portal:case_detail' document.case.id %}">
+                                                {{ document.case.title|truncatechars:20 }}
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ document.uploaded_at|date:"M j, Y" }}</small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ document.file_size|filesizeformat }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ document.file.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Request Consultation Modal -->
+<div class="modal fade" id="consultationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Request Consultation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="consultationForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="consultation-case" class="form-label">Related Case</label>
+                        <select class="form-control" id="consultation-case">
+                            <option value="">Select Case (Optional)</option>
+                            {% for case in user_cases %}
+                            <option value="{{ case.id }}">{{ case.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="consultation-subject" class="form-label">Subject</label>
+                        <input type="text" class="form-control" id="consultation-subject" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="consultation-message" class="form-label">Message</label>
+                        <textarea class="form-control" id="consultation-message" rows="4" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="consultation-urgency" class="form-label">Urgency</label>
+                        <select class="form-control" id="consultation-urgency">
+                            <option value="normal">Normal</option>
+                            <option value="urgent">Urgent</option>
+                            <option value="emergency">Emergency</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Send Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function requestConsultation() {
+    new bootstrap.Modal(document.getElementById('consultationModal')).show();
+}
+
+document.getElementById('consultationForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        case_id: document.getElementById('consultation-case').value,
+        subject: document.getElementById('consultation-subject').value,
+        message: document.getElementById('consultation-message').value,
+        urgency: document.getElementById('consultation-urgency').value
+    };
+    
+    fetch('/client-portal/api/consultation-request/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Consultation request sent successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('consultationModal')).hide();
+            this.reset();
+        } else {
+            alert('Error sending request: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error sending request: ' + error);
+    });
+});
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Auto-refresh activity every 5 minutes
+setInterval(function() {
+    fetch('/client-portal/api/recent-activity/')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.activity) {
+            // Update activity section
+            updateRecentActivity(data.activity);
+        }
+    });
+}, 300000);
+
+function updateRecentActivity(activities) {
+    // Implementation to update recent activity section
+}
+</script>
+{% endblock %}

@@ -1,0 +1,514 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Payment History - Client Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'client_portal:dashboard' %}">Portal</a></li>
+                            <li class="breadcrumb-item active">Payments</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">💳 Payment History</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Summary -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">${{ total_paid|default:0|floatformat:2 }}</h4>
+                            <p class="card-text">Total Paid</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-dollar-sign fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ payment_count|default:0 }}</h4>
+                            <p class="card-text">Total Payments</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-receipt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">${{ this_month_payments|default:0|floatformat:2 }}</h4>
+                            <p class="card-text">This Month</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-calendar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter and Search -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="search" class="form-control" placeholder="Search payments..." value="{{ request.GET.search }}">
+                        </div>
+                        <div class="col-md-3">
+                            <select name="method" class="form-control">
+                                <option value="">All Methods</option>
+                                <option value="credit_card" {% if request.GET.method == 'credit_card' %}selected{% endif %}>Credit Card</option>
+                                <option value="bank_transfer" {% if request.GET.method == 'bank_transfer' %}selected{% endif %}>Bank Transfer</option>
+                                <option value="paypal" {% if request.GET.method == 'paypal' %}selected{% endif %}>PayPal</option>
+                                <option value="check" {% if request.GET.method == 'check' %}selected{% endif %}>Check</option>
+                                <option value="cash" {% if request.GET.method == 'cash' %}selected{% endif %}>Cash</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="year" class="form-control">
+                                <option value="">All Years</option>
+                                {% for year in available_years %}
+                                <option value="{{ year }}" {% if request.GET.year == year|stringformat:'s' %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payments List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        Payment History 
+                        <span class="badge bg-secondary">{{ payments.count|default:0 }}</span>
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary" onclick="exportPayments('csv')">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="exportPayments('pdf')">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if payments %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Invoice</th>
+                                        <th>Amount</th>
+                                        <th>Method</th>
+                                        <th>Reference</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for payment in payments %}
+                                    <tr>
+                                        <td>
+                                            <span>{{ payment.payment_date|date:"M j, Y" }}</span>
+                                            <br><small class="text-muted">{{ payment.payment_date|time:"H:i" }}</small>
+                                        </td>
+                                        <td>
+                                            {% if payment.invoice %}
+                                                <a href="#" onclick="viewInvoice({{ payment.invoice.id }})" class="text-decoration-none">
+                                                    {{ payment.invoice.invoice_number }}
+                                                </a>
+                                                {% if payment.invoice.case %}
+                                                    <br><small class="text-muted">{{ payment.invoice.case.title|truncatechars:20 }}</small>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">Manual Payment</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <strong>${{ payment.amount|floatformat:2 }}</strong>
+                                            {% if payment.currency and payment.currency.code != 'USD' %}
+                                                <br><small class="text-muted">{{ payment.currency.code }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{% if payment.payment_method == 'credit_card' %}primary{% elif payment.payment_method == 'bank_transfer' %}success{% elif payment.payment_method == 'paypal' %}info{% else %}secondary{% endif %}">
+                                                {{ payment.get_payment_method_display }}
+                                            </span>
+                                            {% if payment.card_last_four %}
+                                                <br><small class="text-muted">****{{ payment.card_last_four }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if payment.external_transaction_id %}
+                                                <span class="font-monospace">{{ payment.external_transaction_id|truncatechars:15 }}</span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if payment.status == 'completed' %}
+                                                <span class="badge bg-success">Completed</span>
+                                            {% elif payment.status == 'pending' %}
+                                                <span class="badge bg-warning">Pending</span>
+                                            {% elif payment.status == 'failed' %}
+                                                <span class="badge bg-danger">Failed</span>
+                                            {% elif payment.status == 'refunded' %}
+                                                <span class="badge bg-info">Refunded</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ payment.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-primary" onclick="viewPaymentDetails({{ payment.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <a href="/client-portal/payments/{{ payment.id }}/receipt/" class="btn btn-outline-secondary" target="_blank">
+                                                    <i class="fas fa-receipt"></i>
+                                                </a>
+                                                {% if payment.status == 'completed' and payment.refundable %}
+                                                <button type="button" class="btn btn-outline-warning" onclick="requestRefund({{ payment.id }})">
+                                                    <i class="fas fa-undo"></i>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-credit-card fa-4x text-muted mb-3"></i>
+                            <h5 class="text-muted">No Payments Found</h5>
+                            <p class="text-muted">
+                                {% if request.GET.search or request.GET.method or request.GET.year %}
+                                    No payments match your current filters. 
+                                    <a href="{% url 'client_portal:payments' %}">Clear filters</a>
+                                {% else %}
+                                    You haven't made any payments yet.
+                                {% endif %}
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Pagination -->
+                {% if payments.has_other_pages %}
+                <div class="card-footer">
+                    <nav aria-label="Payments pagination">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if payments.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ payments.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.method %}&method={{ request.GET.method }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}">Previous</a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in payments.paginator.page_range %}
+                                {% if payments.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > payments.number|add:'-3' and num < payments.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.method %}&method={{ request.GET.method }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if payments.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ payments.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.method %}&method={{ request.GET.method }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Methods -->
+    {% if saved_payment_methods %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Saved Payment Methods</h5>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="addPaymentMethod()">
+                        <i class="fas fa-plus"></i> Add Method
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for method in saved_payment_methods %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="card-title">
+                                                <i class="fas fa-{% if method.type == 'credit_card' %}credit-card{% elif method.type == 'bank_account' %}university{% else %}wallet{% endif %} me-2"></i>
+                                                {{ method.get_type_display }}
+                                            </h6>
+                                            <p class="card-text">
+                                                {% if method.type == 'credit_card' %}
+                                                    **** **** **** {{ method.last_four }}
+                                                    <br><small class="text-muted">Expires {{ method.expiry_month }}/{{ method.expiry_year }}</small>
+                                                {% elif method.type == 'bank_account' %}
+                                                    {{ method.bank_name }}
+                                                    <br><small class="text-muted">****{{ method.last_four }}</small>
+                                                {% else %}
+                                                    {{ method.account_name }}
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="#" onclick="editPaymentMethod({{ method.id }})">Edit</a></li>
+                                                <li><a class="dropdown-item text-danger" href="#" onclick="deletePaymentMethod({{ method.id }})">Delete</a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Payment Details Modal -->
+<div class="modal fade" id="paymentDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Payment Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="paymentDetailsContent">
+                <!-- Payment details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-primary" id="downloadReceiptBtn">
+                    <i class="fas fa-download"></i> Download Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Refund Request Modal -->
+<div class="modal fade" id="refundModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Request Refund</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="refundForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="refundAmount" class="form-label">Refund Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="refundAmount" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="refundReason" class="form-label">Reason for Refund</label>
+                        <select class="form-control" id="refundReason" required>
+                            <option value="">Select reason</option>
+                            <option value="duplicate_payment">Duplicate Payment</option>
+                            <option value="service_not_provided">Service Not Provided</option>
+                            <option value="billing_error">Billing Error</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="refundNotes" class="form-label">Additional Notes</label>
+                        <textarea class="form-control" id="refundNotes" rows="3"></textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="fas fa-info-circle"></i>
+                            Refund requests are subject to review and approval. Processing may take 3-5 business days.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-undo"></i> Request Refund
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPaymentId = null;
+
+function viewPaymentDetails(paymentId) {
+    fetch(`/client-portal/api/payments/${paymentId}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('paymentDetailsContent').innerHTML = data.html;
+            document.getElementById('downloadReceiptBtn').onclick = () => {
+                window.open(`/client-portal/payments/${paymentId}/receipt/`, '_blank');
+            };
+            new bootstrap.Modal(document.getElementById('paymentDetailsModal')).show();
+        } else {
+            alert('Error loading payment details: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error loading payment details: ' + error);
+    });
+}
+
+function requestRefund(paymentId) {
+    currentPaymentId = paymentId;
+    
+    // Load payment amount
+    fetch(`/client-portal/api/payments/${paymentId}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('refundAmount').value = data.payment.amount;
+            document.getElementById('refundAmount').max = data.payment.amount;
+            new bootstrap.Modal(document.getElementById('refundModal')).show();
+        }
+    });
+}
+
+function viewInvoice(invoiceId) {
+    window.open(`/client-portal/invoices/${invoiceId}/`, '_blank');
+}
+
+function exportPayments(format) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('format', format);
+    window.open(`/client-portal/api/payments/export/?${params.toString()}`, '_blank');
+}
+
+function addPaymentMethod() {
+    // Implementation for adding payment method
+    alert('Add payment method feature will be implemented');
+}
+
+function editPaymentMethod(methodId) {
+    // Implementation for editing payment method
+    alert('Edit payment method feature will be implemented');
+}
+
+function deletePaymentMethod(methodId) {
+    if (confirm('Are you sure you want to delete this payment method?')) {
+        fetch(`/client-portal/api/payment-methods/${methodId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error deleting payment method: ' + data.error);
+            }
+        });
+    }
+}
+
+// Refund form submission
+document.getElementById('refundForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const refundData = {
+        payment_id: currentPaymentId,
+        amount: document.getElementById('refundAmount').value,
+        reason: document.getElementById('refundReason').value,
+        notes: document.getElementById('refundNotes').value
+    };
+    
+    fetch('/client-portal/api/request-refund/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(refundData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Refund request submitted successfully! You will receive an email confirmation.');
+            bootstrap.Modal.getInstance(document.getElementById('refundModal')).hide();
+            location.reload();
+        } else {
+            alert('Error submitting refund request: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error submitting refund request: ' + error);
+    });
+});
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,672 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Performance Analytics - Legal Manager{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.performance-metric {
+    border-left: 4px solid #007bff;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+.metric-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+.trend-indicator {
+    font-size: 0.875rem;
+}
+.efficiency-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: #e9ecef;
+    overflow: hidden;
+}
+.efficiency-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+.team-member-card {
+    transition: transform 0.2s ease;
+    cursor: pointer;
+}
+.team-member-card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'cases:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'analytics:overview' %}">Analytics</a></li>
+                            <li class="breadcrumb-item active">Performance</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">📊 Performance Analytics</h1>
+                </div>
+                <div>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="timeframe" id="timeframe_week" value="week">
+                        <label class="btn btn-outline-primary" for="timeframe_week">Week</label>
+                        
+                        <input type="radio" class="btn-check" name="timeframe" id="timeframe_month" value="month" checked>
+                        <label class="btn btn-outline-primary" for="timeframe_month">Month</label>
+                        
+                        <input type="radio" class="btn-check" name="timeframe" id="timeframe_quarter" value="quarter">
+                        <label class="btn btn-outline-primary" for="timeframe_quarter">Quarter</label>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary ms-2" onclick="generateReport()">
+                        <i class="fas fa-file-alt"></i> Generate Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Performance Indicators -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card performance-metric h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-primary text-white me-3">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h3 class="mb-1">{{ avg_case_duration|default:0|floatformat:1 }}</h3>
+                            <p class="text-muted mb-1">Avg Case Duration (days)</p>
+                            <div class="trend-indicator">
+                                {% if case_duration_trend.direction == 'down' %}
+                                    <span class="text-success">
+                                        <i class="fas fa-arrow-down"></i>
+                                {% else %}
+                                    <span class="text-danger">
+                                        <i class="fas fa-arrow-up"></i>
+                                {% endif %}
+                                    {{ case_duration_trend.percentage|default:0 }}%
+                                </span>
+                                <small class="text-muted">vs last period</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card performance-metric h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-success text-white me-3">
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h3 class="mb-1">{{ win_rate|default:0|floatformat:1 }}%</h3>
+                            <p class="text-muted mb-1">Case Win Rate</p>
+                            <div class="trend-indicator">
+                                {% if win_rate_trend.direction == 'up' %}
+                                    <span class="text-success">
+                                        <i class="fas fa-arrow-up"></i>
+                                {% else %}
+                                    <span class="text-danger">
+                                        <i class="fas fa-arrow-down"></i>
+                                {% endif %}
+                                    {{ win_rate_trend.percentage|default:0 }}%
+                                </span>
+                                <small class="text-muted">vs last period</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card performance-metric h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-info text-white me-3">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h3 class="mb-1">{{ client_satisfaction|default:0|floatformat:1 }}</h3>
+                            <p class="text-muted mb-1">Client Satisfaction</p>
+                            <div class="trend-indicator">
+                                {% if satisfaction_trend.direction == 'up' %}
+                                    <span class="text-success">
+                                        <i class="fas fa-arrow-up"></i>
+                                {% else %}
+                                    <span class="text-danger">
+                                        <i class="fas fa-arrow-down"></i>
+                                {% endif %}
+                                    {{ satisfaction_trend.percentage|default:0 }}%
+                                </span>
+                                <small class="text-muted">vs last period</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card performance-metric h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-warning text-white me-3">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h3 class="mb-1">{{ productivity_score|default:0|floatformat:0 }}</h3>
+                            <p class="text-muted mb-1">Productivity Score</p>
+                            <div class="trend-indicator">
+                                {% if productivity_trend.direction == 'up' %}
+                                    <span class="text-success">
+                                        <i class="fas fa-arrow-up"></i>
+                                {% else %}
+                                    <span class="text-danger">
+                                        <i class="fas fa-arrow-down"></i>
+                                {% endif %}
+                                    {{ productivity_trend.percentage|default:0 }}%
+                                </span>
+                                <small class="text-muted">vs last period</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Trends -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Performance Trends</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="performanceTrendsChart" style="height: 400px;"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Case Status Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="caseStatusChart" style="height: 400px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Performance -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Team Performance</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary active" onclick="switchTeamView('overview')">Overview</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="switchTeamView('detailed')">Detailed</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="teamOverview">
+                        <div class="row">
+                            {% for member in team_members %}
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <div class="card team-member-card h-100" onclick="showMemberDetails({{ member.id }})">
+                                    <div class="card-body text-center">
+                                        <div class="mb-3">
+                                            {% if member.photo %}
+                                                <img src="{{ member.photo.url }}" class="rounded-circle" width="60" height="60" alt="{{ member.name }}">
+                                            {% else %}
+                                                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                                    {{ member.name|first }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <h6 class="card-title">{{ member.name }}</h6>
+                                        <p class="text-muted small">{{ member.role }}</p>
+                                        
+                                        <div class="mb-2">
+                                            <small class="text-muted">Cases: {{ member.active_cases }}/{{ member.total_cases }}</small>
+                                            <div class="efficiency-bar mt-1">
+                                                <div class="efficiency-fill bg-success" style="width: {{ member.efficiency_percentage }}%;"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row text-center">
+                                            <div class="col-6">
+                                                <small class="text-success">{{ member.win_rate|floatformat:0 }}%</small>
+                                                <br><small class="text-muted">Win Rate</small>
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="text-info">{{ member.hours_billed|floatformat:0 }}h</small>
+                                                <br><small class="text-muted">Hours</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div id="teamDetailed" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Team Member</th>
+                                        <th>Active Cases</th>
+                                        <th>Win Rate</th>
+                                        <th>Avg Case Duration</th>
+                                        <th>Hours Billed</th>
+                                        <th>Client Rating</th>
+                                        <th>Performance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for member in team_members %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if member.photo %}
+                                                    <img src="{{ member.photo.url }}" class="rounded-circle me-2" width="32" height="32" alt="{{ member.name }}">
+                                                {% else %}
+                                                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                                        {{ member.name|first }}
+                                                    </div>
+                                                {% endif %}
+                                                <div>
+                                                    <strong>{{ member.name }}</strong>
+                                                    <br><small class="text-muted">{{ member.role }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ member.active_cases }}</td>
+                                        <td>
+                                            {% if member.win_rate >= 80 %}
+                                                <span class="badge bg-success">
+                                            {% elif member.win_rate >= 60 %}
+                                                <span class="badge bg-warning">
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                            {% endif %}
+                                                {{ member.win_rate|floatformat:1 }}%
+                                            </span>
+                                        </td>
+                                        <td>{{ member.avg_case_duration|floatformat:1 }} days</td>
+                                        <td>{{ member.hours_billed|floatformat:0 }}h</td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <span class="me-1">{{ member.client_rating|floatformat:1 }}</span>
+                                                <div class="text-warning">
+                                                    {% for i in "12345" %}
+                                                        {% if forloop.counter <= member.client_rating %}
+                                                            <i class="fas fa-star"></i>
+                                                        {% else %}
+                                                            <i class="far fa-star"></i>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="efficiency-bar">
+                                                {% if member.performance_score >= 80 %}
+                                                    <div class="efficiency-fill bg-success" 
+                                                {% elif member.performance_score >= 60 %}
+                                                    <div class="efficiency-fill bg-warning" 
+                                                {% else %}
+                                                    <div class="efficiency-fill bg-danger" 
+                                                {% endif %}
+                                                     style="width: {{ member.performance_score }}%;"></div>
+                                            </div>
+                                            <small class="text-muted">{{ member.performance_score|floatformat:0 }}%</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Practice Area Performance -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Practice Area Performance</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="practiceAreaChart" style="height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Monthly Case Resolution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="caseResolutionChart" style="height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Goals -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Performance Goals Progress</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for goal in performance_goals %}
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card border-left-primary">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ goal.title }}</h6>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="text-muted">{{ goal.current_value }} / {{ goal.target_value }}</span>
+                                        <span class="text-primary">{{ goal.progress_percentage|floatformat:0 }}%</span>
+                                    </div>
+                                    <div class="progress">
+                                        {% if goal.progress_percentage >= 100 %}
+                                            <div class="progress-bar bg-success" 
+                                        {% elif goal.progress_percentage >= 75 %}
+                                            <div class="progress-bar bg-info" 
+                                        {% elif goal.progress_percentage >= 50 %}
+                                            <div class="progress-bar bg-warning" 
+                                        {% else %}
+                                            <div class="progress-bar bg-danger" 
+                                        {% endif %}
+                                             style="width: {{ goal.progress_percentage }}%"></div>
+                                    </div>
+                                    <small class="text-muted">Due: {{ goal.deadline|date:"M j, Y" }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Team Member Details Modal -->
+<div class="modal fade" id="memberDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Team Member Performance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="memberDetailsContent">
+                <!-- Member details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="exportMemberReport()">
+                    <i class="fas fa-download"></i> Export Report
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Chart.js configurations
+Chart.defaults.responsive = true;
+Chart.defaults.maintainAspectRatio = false;
+
+// Performance Trends Chart
+const performanceTrendsCtx = document.getElementById('performanceTrendsChart').getContext('2d');
+const performanceTrendsChart = new Chart(performanceTrendsCtx, {
+    type: 'line',
+    data: {
+        labels: {{ performance_labels|safe }},
+        datasets: [{
+            label: 'Case Duration (days)',
+            data: {{ case_duration_data|safe }},
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            yAxisID: 'y'
+        }, {
+            label: 'Win Rate (%)',
+            data: {{ win_rate_data|safe }},
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+            yAxisID: 'y1'
+        }, {
+            label: 'Client Satisfaction',
+            data: {{ satisfaction_data|safe }},
+            borderColor: 'rgb(54, 162, 235)',
+            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+            yAxisID: 'y1'
+        }]
+    },
+    options: {
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        scales: {
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: {
+                    display: true,
+                    text: 'Days'
+                }
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                title: {
+                    display: true,
+                    text: 'Percentage / Score'
+                },
+                grid: {
+                    drawOnChartArea: false,
+                },
+            }
+        }
+    }
+});
+
+// Case Status Chart
+const caseStatusCtx = document.getElementById('caseStatusChart').getContext('2d');
+const caseStatusChart = new Chart(caseStatusCtx, {
+    type: 'doughnut',
+    data: {
+        labels: {{ case_status_labels|safe }},
+        datasets: [{
+            data: {{ case_status_data|safe }},
+            backgroundColor: [
+                '#28a745',
+                '#17a2b8',
+                '#ffc107',
+                '#dc3545',
+                '#6c757d'
+            ]
+        }]
+    },
+    options: {
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Practice Area Chart
+const practiceAreaCtx = document.getElementById('practiceAreaChart').getContext('2d');
+const practiceAreaChart = new Chart(practiceAreaCtx, {
+    type: 'radar',
+    data: {
+        labels: {{ practice_area_labels|safe }},
+        datasets: [{
+            label: 'Win Rate',
+            data: {{ practice_area_win_rates|safe }},
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)'
+        }, {
+            label: 'Client Satisfaction',
+            data: {{ practice_area_satisfaction|safe }},
+            borderColor: 'rgb(54, 162, 235)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)'
+        }]
+    },
+    options: {
+        scales: {
+            r: {
+                beginAtZero: true,
+                max: 100
+            }
+        }
+    }
+});
+
+// Case Resolution Chart
+const caseResolutionCtx = document.getElementById('caseResolutionChart').getContext('2d');
+const caseResolutionChart = new Chart(caseResolutionCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ resolution_labels|safe }},
+        datasets: [{
+            label: 'Cases Resolved',
+            data: {{ resolution_data|safe }},
+            backgroundColor: 'rgba(75, 192, 192, 0.8)',
+            borderColor: 'rgb(75, 192, 192)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+// Event handlers
+document.querySelectorAll('input[name="timeframe"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        updatePerformanceData(this.value);
+    });
+});
+
+function updatePerformanceData(timeframe) {
+    fetch(`/analytics/performance/data/?timeframe=${timeframe}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateAllCharts(data);
+            updateMetrics(data.metrics);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching performance data:', error);
+    });
+}
+
+function updateAllCharts(data) {
+    // Update performance trends chart
+    performanceTrendsChart.data.labels = data.performance_labels;
+    performanceTrendsChart.data.datasets[0].data = data.case_duration_data;
+    performanceTrendsChart.data.datasets[1].data = data.win_rate_data;
+    performanceTrendsChart.data.datasets[2].data = data.satisfaction_data;
+    performanceTrendsChart.update();
+    
+    // Update other charts...
+}
+
+function updateMetrics(metrics) {
+    // Update metric values in the DOM
+    // This would update the KPI cards with new values
+}
+
+function switchTeamView(view) {
+    const overview = document.getElementById('teamOverview');
+    const detailed = document.getElementById('teamDetailed');
+    const buttons = document.querySelectorAll('.btn-group .btn');
+    
+    buttons.forEach(btn => btn.classList.remove('active'));
+    
+    if (view === 'overview') {
+        overview.style.display = 'block';
+        detailed.style.display = 'none';
+        buttons[0].classList.add('active');
+    } else {
+        overview.style.display = 'none';
+        detailed.style.display = 'block';
+        buttons[1].classList.add('active');
+    }
+}
+
+function showMemberDetails(memberId) {
+    fetch(`/analytics/performance/member/${memberId}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('memberDetailsContent').innerHTML = data.html;
+            new bootstrap.Modal(document.getElementById('memberDetailsModal')).show();
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching member details:', error);
+    });
+}
+
+function generateReport() {
+    const timeframe = document.querySelector('input[name="timeframe"]:checked').value;
+    window.open(`/analytics/performance/report/?timeframe=${timeframe}`, '_blank');
+}
+
+function exportMemberReport() {
+    // Implementation for exporting individual member report
+    alert('Member report export functionality will be implemented');
+}
+
+// Auto-refresh data every 10 minutes
+setInterval(() => {
+    const timeframe = document.querySelector('input[name="timeframe"]:checked').value;
+    updatePerformanceData(timeframe);
+}, 600000);
+</script>
+{% endblock %}

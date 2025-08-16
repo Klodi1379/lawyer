@@ -247,23 +247,23 @@
                                 <i class="bi bi-graph-up me-2"></i>Analytics & Reports
                                 <span class="badge bg-info ms-2">NEW</span>
                             </h6></li>
-                            <li><a class="dropdown-item" href="/analytics/">
+                            <li><a class="dropdown-item" href="{% url 'analytics_dashboard' %}">
                                 <i class="bi bi-speedometer2 me-2"></i> Analytics Dashboard
                             </a></li>
-                            <li><a class="dropdown-item" href="/analytics/financial/">
+                            <li><a class="dropdown-item" href="{% url 'analytics_dashboard' %}">
                                 <i class="bi bi-currency-dollar me-2"></i> Financial Reports
                             </a></li>
-                            <li><a class="dropdown-item" href="/analytics/performance/">
+                            <li><a class="dropdown-item" href="{% url 'analytics_dashboard' %}">
                                 <i class="bi bi-person-check me-2"></i> Performance Metrics
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/analytics/outcomes/">
+                            <li><a class="dropdown-item" href="{% url 'analytics_dashboard' %}">
                                 <i class="bi bi-trophy me-2"></i> Case Outcomes
                             </a></li>
-                            <li><a class="dropdown-item" href="/analytics/kpi/">
+                            <li><a class="dropdown-item" href="{% url 'analytics_dashboard' %}">
                                 <i class="bi bi-bullseye me-2"></i> KPI Dashboard
                             </a></li>
-                            <li><a class="dropdown-item" href="/analytics/custom/">
+                            <li><a class="dropdown-item" href="{% url 'analytics_dashboard' %}">
                                 <i class="bi bi-sliders me-2"></i> Custom Reports
                             </a></li>
                         </ul>
@@ -727,15 +727,15 @@ function getCsrfToken() {
 
 // Additional navbar functions
 function showInvoices() {
-    alert('Invoices functionality will be available soon. This will integrate with the new billing system.');
+    window.location.href = "{% url 'invoices_list' %}";
 }
 
 function showExpenses() {
-    alert('Expenses tracking will be available soon. This will integrate with the new billing system.');
+    window.location.href = "{% url 'expenses_list' %}";
 }
 
 function showPayments() {
-    alert('Payment tracking will be available soon. This will integrate with the new billing system.');
+    window.location.href = "{% url 'payments_list' %}";
 }
 
 function showClientInvoices() {
@@ -758,7 +758,6 @@ document.addEventListener('keydown', function(e) {
         e.preventDefault();
         window.location.href = '/dashboard/';
     } else if (e.ctrlKey && e.key === 'b') {
-        e.preventDefault();
         window.location.href = '/billing/';
     } else if (e.altKey && e.key === 'n') {
         e.preventDefault();

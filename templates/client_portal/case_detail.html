@@ -1,0 +1,374 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ case.title }} - Client Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'client_portal:dashboard' %}">Portal</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'client_portal:cases' %}">Cases</a></li>
+                            <li class="breadcrumb-item active">{{ case.title|truncatechars:30 }}</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">{{ case.title }}</h1>
+                </div>
+                <div>
+                    <span class="badge bg-{% if case.status == 'active' %}success{% elif case.status == 'pending' %}warning{% else %}secondary{% endif %} fs-6">
+                        {{ case.get_status_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Case Details -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Case Information</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Case Number:</dt>
+                        <dd class="col-sm-9">{{ case.case_number }}</dd>
+
+                        <dt class="col-sm-3">Description:</dt>
+                        <dd class="col-sm-9">{{ case.description|default:"No description provided" }}</dd>
+
+                        <dt class="col-sm-3">Assigned Lawyer:</dt>
+                        <dd class="col-sm-9">
+                            {% if case.assigned_lawyer %}
+                                {{ case.assigned_lawyer.get_full_name }}
+                                <br><small class="text-muted">{{ case.assigned_lawyer.email }}</small>
+                            {% else %}
+                                <span class="text-muted">Unassigned</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-3">Created:</dt>
+                        <dd class="col-sm-9">{{ case.created_at|date:"F j, Y" }}</dd>
+
+                        <dt class="col-sm-3">Last Updated:</dt>
+                        <dd class="col-sm-9">{{ case.updated_at|date:"F j, Y" }} ({{ case.updated_at|timesince }} ago)</dd>
+
+                        {% if case.court_name %}
+                        <dt class="col-sm-3">Court:</dt>
+                        <dd class="col-sm-9">{{ case.court_name }}</dd>
+                        {% endif %}
+
+                        {% if case.opposing_party %}
+                        <dt class="col-sm-3">Opposing Party:</dt>
+                        <dd class="col-sm-9">{{ case.opposing_party }}</dd>
+                        {% endif %}
+                    </dl>
+
+                    <!-- Progress -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">Case Progress</h6>
+                            <span class="text-muted">{{ case.progress_percentage|default:0 }}%</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar" style="width: {{ case.progress_percentage|default:0 }}%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Case Timeline -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Case Timeline</h5>
+                </div>
+                <div class="card-body">
+                    {% if case_timeline %}
+                        <div class="timeline">
+                            {% for event in case_timeline %}
+                            <div class="timeline-item">
+                                <div class="timeline-marker bg-primary"></div>
+                                <div class="timeline-content">
+                                    <h6 class="mb-1">{{ event.title }}</h6>
+                                    <p class="mb-1">{{ event.description }}</p>
+                                    <small class="text-muted">{{ event.event_date|date:"M j, Y H:i" }}</small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">No timeline events yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Case Notes -->
+            {% if case.notes %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Case Notes</h5>
+                </div>
+                <div class="card-body">
+                    <p>{{ case.notes|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4 mb-4">
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'client_portal:documents' %}?case={{ case.id }}" class="btn btn-outline-primary">
+                            <i class="fas fa-file-alt me-2"></i>View Documents
+                        </a>
+                        <button type="button" class="btn btn-outline-success" onclick="requestUpdate()">
+                            <i class="fas fa-comment me-2"></i>Request Update
+                        </button>
+                        <a href="{% url 'client_portal:messages' %}" class="btn btn-outline-info">
+                            <i class="fas fa-envelope me-2"></i>Send Message
+                        </a>
+                        <button type="button" class="btn btn-outline-warning" onclick="scheduleConsultation()">
+                            <i class="fas fa-calendar me-2"></i>Schedule Meeting
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Case Statistics -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Case Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="border-end">
+                                <h4 class="text-primary">{{ case.documents.count|default:0 }}</h4>
+                                <small class="text-muted">Documents</small>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-success">{{ case.events.count|default:0 }}</h4>
+                            <small class="text-muted">Events</small>
+                        </div>
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="text-warning">{{ case.time_entries.count|default:0 }}</h4>
+                                <small class="text-muted">Time Entries</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-info">{{ case.messages.count|default:0 }}</h4>
+                            <small class="text-muted">Messages</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Documents -->
+            {% if recent_documents %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Documents</h5>
+                </div>
+                <div class="card-body">
+                    {% for document in recent_documents %}
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-file-alt text-primary me-2"></i>
+                        <div class="flex-grow-1">
+                            <a href="{{ document.file.url }}" target="_blank" class="text-decoration-none">
+                                {{ document.filename|truncatechars:25 }}
+                            </a>
+                            <br><small class="text-muted">{{ document.uploaded_at|date:"M j" }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="mt-3">
+                        <a href="{% url 'client_portal:documents' %}?case={{ case.id }}" class="btn btn-sm btn-outline-primary w-100">
+                            View All Documents
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Upcoming Events -->
+            {% if upcoming_events %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Upcoming Events</h5>
+                </div>
+                <div class="card-body">
+                    {% for event in upcoming_events %}
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-primary text-white rounded text-center me-3" style="width: 50px; height: 50px; line-height: 50px;">
+                            {{ event.start_time|date:"j" }}
+                        </div>
+                        <div>
+                            <h6 class="mb-1">{{ event.title }}</h6>
+                            <small class="text-muted">
+                                {{ event.start_time|date:"M j, Y H:i" }}
+                                {% if event.location %} • {{ event.location }}{% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Request Update Modal -->
+<div class="modal fade" id="updateRequestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Request Case Update</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="updateRequestForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="updateSubject" class="form-label">Subject</label>
+                        <input type="text" class="form-control" id="updateSubject" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="updateMessage" class="form-label">Message</label>
+                        <textarea class="form-control" id="updateMessage" rows="4" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="updateUrgency" class="form-label">Priority</label>
+                        <select class="form-control" id="updateUrgency">
+                            <option value="normal">Normal</option>
+                            <option value="urgent">Urgent</option>
+                            <option value="emergency">Emergency</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Send Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.timeline {
+    position: relative;
+    padding-left: 3rem;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 2rem;
+}
+
+.timeline-item:before {
+    content: '';
+    position: absolute;
+    left: -37px;
+    top: 20px;
+    bottom: -10px;
+    width: 2px;
+    background-color: #dee2e6;
+}
+
+.timeline-item:last-child:before {
+    display: none;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -45px;
+    top: 5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #007bff;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    position: relative;
+}
+
+.timeline-content:before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 15px;
+    border: 8px solid transparent;
+    border-right-color: #f8f9fa;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function requestUpdate() {
+    new bootstrap.Modal(document.getElementById('updateRequestModal')).show();
+}
+
+function scheduleConsultation() {
+    // Implementation for scheduling consultation
+    alert('Consultation scheduling feature will be implemented');
+}
+
+document.getElementById('updateRequestForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        case_id: {{ case.id }},
+        subject: document.getElementById('updateSubject').value,
+        message: document.getElementById('updateMessage').value,
+        urgency: document.getElementById('updateUrgency').value
+    };
+    
+    fetch('/client-portal/api/request-update/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Update request sent successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('updateRequestModal')).hide();
+            this.reset();
+        } else {
+            alert('Error sending request: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error sending request: ' + error);
+    });
+});
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+</script>
+{% endblock %}

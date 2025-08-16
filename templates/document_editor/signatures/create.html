@@ -1,0 +1,870 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Request Signature - Document Editor{% endblock %}
+
+{% block extra_css %}
+<style>
+.signature-builder {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+}
+.signer-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: white;
+    position: relative;
+}
+.signer-card .remove-signer {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+.document-preview {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 20px;
+    background: white;
+}
+.signature-field {
+    border: 2px dashed #007bff;
+    background: rgba(0, 123, 255, 0.1);
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.signature-field:hover {
+    background: rgba(0, 123, 255, 0.2);
+}
+.signature-field.selected {
+    border-color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+}
+.workflow-step {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    margin: 5px 0;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    background: white;
+}
+.workflow-step.active {
+    border-color: #007bff;
+    background: #e3f2fd;
+}
+.step-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #6c757d;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    font-weight: bold;
+}
+.step-number.active {
+    background: #007bff;
+}
+.template-selector {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    background: white;
+}
+.template-item {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #f8f9fa;
+    transition: background 0.2s ease;
+}
+.template-item:hover {
+    background: #f8f9fa;
+}
+.template-item.selected {
+    background: #e3f2fd;
+    border-color: #007bff;
+}
+.signature-preview {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 20px;
+    position: sticky;
+    top: 20px;
+}
+.signature-settings {
+    background: #f8f9fa;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'document_editor:dashboard' %}">Document Editor</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'document_editor:signature_list' %}">Signatures</a></li>
+                            <li class="breadcrumb-item active">Request Signature</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">✍️ Request Signature</h1>
+                    <p class="text-muted">Create a new signature request for your document</p>
+                </div>
+                <div>
+                    <a href="{% url 'document_editor:signature_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Signatures
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="signatureRequestForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="row">
+            <!-- Main Form -->
+            <div class="col-lg-8 mb-4">
+                <!-- Document Selection -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Document Selection</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">Document Source</label>
+                                    <div class="btn-group w-100" role="group">
+                                        <input type="radio" class="btn-check" name="document_source" id="existing_doc" value="existing" checked>
+                                        <label class="btn btn-outline-primary" for="existing_doc">Existing Document</label>
+                                        
+                                        <input type="radio" class="btn-check" name="document_source" id="upload_doc" value="upload">
+                                        <label class="btn btn-outline-primary" for="upload_doc">Upload New</label>
+                                        
+                                        <input type="radio" class="btn-check" name="document_source" id="template_doc" value="template">
+                                        <label class="btn btn-outline-primary" for="template_doc">From Template</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Existing Document Selection -->
+                        <div id="existingDocumentSection">
+                            <div class="mb-3">
+                                <label for="document" class="form-label">Select Document <span class="text-danger">*</span></label>
+                                <select class="form-control" id="document" name="document" onchange="previewDocument()">
+                                    <option value="">Choose a document...</option>
+                                    {% for doc in documents %}
+                                    <option value="{{ doc.id }}" data-url="{{ doc.file.url }}" data-title="{{ doc.title }}">
+                                        {{ doc.title }} - {{ doc.created_at|date:"M j, Y" }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload New Document -->
+                        <div id="uploadDocumentSection" style="display: none;">
+                            <div class="mb-3">
+                                <label for="uploadFile" class="form-label">Upload Document <span class="text-danger">*</span></label>
+                                <input type="file" class="form-control" id="uploadFile" name="upload_file" accept=".pdf,.doc,.docx">
+                                <small class="form-text text-muted">Supported formats: PDF, DOC, DOCX (Max: 10MB)</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="documentTitle" class="form-label">Document Title</label>
+                                <input type="text" class="form-control" id="documentTitle" name="document_title" placeholder="Enter document title">
+                            </div>
+                        </div>
+                        
+                        <!-- Template Selection -->
+                        <div id="templateDocumentSection" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Select Template</label>
+                                <div class="template-selector">
+                                    {% for template in templates %}
+                                    <div class="template-item" data-template-id="{{ template.id }}">
+                                        <strong>{{ template.name }}</strong>
+                                        <div class="small text-muted">{{ template.description|truncatechars:60 }}</div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <input type="hidden" id="selectedTemplate" name="template" value="">
+                            </div>
+                        </div>
+                        
+                        <!-- Document Preview -->
+                        <div class="document-preview" id="documentPreview" style="display: none;">
+                            <div class="text-center">
+                                <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">Select a document to see preview</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Signature Workflow -->
+                <div class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Signature Workflow</h5>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addSigner()">
+                            <i class="fas fa-plus"></i> Add Signer
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="signature-builder">
+                            <div class="mb-3">
+                                <label class="form-label">Signing Order</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="signing_order" id="sequential" value="sequential" checked>
+                                    <label class="btn btn-outline-primary" for="sequential">Sequential (One at a time)</label>
+                                    
+                                    <input type="radio" class="btn-check" name="signing_order" id="parallel" value="parallel">
+                                    <label class="btn btn-outline-primary" for="parallel">Parallel (All at once)</label>
+                                </div>
+                            </div>
+                            
+                            <div id="signersContainer">
+                                <!-- Initial signer will be added here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Message and Settings -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Message & Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Message to Signers</label>
+                            <textarea class="form-control" id="message" name="message" rows="4" placeholder="Please review and sign this document...">Please review and sign this document. If you have any questions, feel free to contact me.</textarea>
+                        </div>
+                        
+                        <div class="signature-settings">
+                            <h6 class="mb-3">Signature Settings</h6>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="expiresAt" class="form-label">Expiration Date</label>
+                                        <input type="datetime-local" class="form-control" id="expiresAt" name="expires_at">
+                                        <small class="form-text text-muted">Leave blank for no expiration</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="priority" class="form-label">Priority</label>
+                                        <select class="form-control" id="priority" name="priority">
+                                            <option value="normal" selected>Normal</option>
+                                            <option value="high">High</option>
+                                            <option value="urgent">Urgent</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input type="checkbox" class="form-check-input" id="requireAuth" name="require_auth">
+                                        <label class="form-check-label" for="requireAuth">
+                                            Require authentication
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input type="checkbox" class="form-check-input" id="allowComments" name="allow_comments" checked>
+                                        <label class="form-check-label" for="allowComments">
+                                            Allow signer comments
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input type="checkbox" class="form-check-input" id="sendReminders" name="send_reminders" checked>
+                                        <label class="form-check-label" for="sendReminders">
+                                            Send automatic reminders
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input type="checkbox" class="form-check-input" id="notifyComplete" name="notify_complete" checked>
+                                        <label class="form-check-label" for="notifyComplete">
+                                            Notify when completed
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <button type="submit" name="action" value="save_draft" class="btn btn-secondary">
+                                    <i class="fas fa-save"></i> Save as Draft
+                                </button>
+                                <button type="submit" name="action" value="send_request" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane"></i> Send Request
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-outline-info" onclick="previewRequest()">
+                                    <i class="fas fa-eye"></i> Preview
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="testRequest()">
+                                    <i class="fas fa-flask"></i> Test
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4 mb-4">
+                <!-- Request Preview -->
+                <div class="signature-preview">
+                    <h5>Request Preview</h5>
+                    <div id="requestPreview">
+                        <p class="text-muted text-center">Configure your request to see preview</p>
+                    </div>
+                </div>
+
+                <!-- Quick Templates -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Templates</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadQuickTemplate('contract')">
+                                Contract Signing
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="loadQuickTemplate('nda')">
+                                NDA Agreement
+                            </button>
+                            <button type="button" class="btn btn-outline-success btn-sm" onclick="loadQuickTemplate('approval')">
+                                Document Approval
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="loadQuickTemplate('consent')">
+                                Consent Form
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Signers -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Frequently Used Signers</h5>
+                    </div>
+                    <div class="card-body">
+                        {% for signer in frequent_signers %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <strong>{{ signer.get_full_name }}</strong>
+                                <div class="small text-muted">{{ signer.email }}</div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFrequentSigner('{{ signer.id }}', '{{ signer.get_full_name }}', '{{ signer.email }}')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Request Statistics -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Stats</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h6 class="text-primary" id="signerCount">0</h6>
+                                <small class="text-muted">Signers</small>
+                            </div>
+                            <div class="col-6">
+                                <h6 class="text-success" id="estimatedTime">-</h6>
+                                <small class="text-muted">Est. Time</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h6 class="text-info" id="workflowType">Sequential</h6>
+                                <small class="text-muted">Workflow</small>
+                            </div>
+                            <div class="col-6">
+                                <h6 class="text-warning" id="priorityLevel">Normal</h6>
+                                <small class="text-muted">Priority</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Add Signer Modal -->
+<div class="modal fade" id="addSignerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Signer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addSignerForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="signerName" class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="signerName" name="signer_name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="signerEmail" class="form-label">Email Address <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="signerEmail" name="signer_email" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="signerRole" class="form-label">Role/Title</label>
+                        <input type="text" class="form-control" id="signerRole" name="signer_role" placeholder="e.g., CEO, Legal Counsel">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="signerType" class="form-label">Signer Type</label>
+                        <select class="form-control" id="signerType" name="signer_type">
+                            <option value="signature">Signature Required</option>
+                            <option value="approval">Approval Only</option>
+                            <option value="review">Review Only</option>
+                            <option value="cc">CC (No Action Required)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="signerRequired" name="signer_required" checked>
+                        <label class="form-check-label" for="signerRequired">
+                            Required signer
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Signer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Request Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Signature Request Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="previewContent">
+                    <!-- Preview content will be generated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="sendFromPreview()">Send Request</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let signerCounter = 0;
+let signers = [];
+
+// Document source selection
+document.querySelectorAll('input[name="document_source"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.getElementById('existingDocumentSection').style.display = this.value === 'existing' ? 'block' : 'none';
+        document.getElementById('uploadDocumentSection').style.display = this.value === 'upload' ? 'block' : 'none';
+        document.getElementById('templateDocumentSection').style.display = this.value === 'template' ? 'block' : 'none';
+    });
+});
+
+// Template selection
+document.querySelectorAll('.template-item').forEach(item => {
+    item.addEventListener('click', function() {
+        document.querySelectorAll('.template-item').forEach(i => i.classList.remove('selected'));
+        this.classList.add('selected');
+        document.getElementById('selectedTemplate').value = this.dataset.templateId;
+    });
+});
+
+// Signing order selection
+document.querySelectorAll('input[name="signing_order"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        updateWorkflowType();
+        updateSignerCards();
+    });
+});
+
+// Priority selection
+document.getElementById('priority').addEventListener('change', function() {
+    document.getElementById('priorityLevel').textContent = this.options[this.selectedIndex].text;
+});
+
+function addSigner() {
+    new bootstrap.Modal(document.getElementById('addSignerModal')).show();
+}
+
+function addFrequentSigner(id, name, email) {
+    const signer = {
+        id: Date.now(),
+        name: name,
+        email: email,
+        role: '',
+        type: 'signature',
+        required: true
+    };
+    
+    signers.push(signer);
+    updateSignerCards();
+    updateStats();
+}
+
+document.getElementById('addSignerForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const signer = {
+        id: Date.now(),
+        name: formData.get('signer_name'),
+        email: formData.get('signer_email'),
+        role: formData.get('signer_role'),
+        type: formData.get('signer_type'),
+        required: formData.has('signer_required')
+    };
+    
+    signers.push(signer);
+    updateSignerCards();
+    updateStats();
+    
+    bootstrap.Modal.getInstance(document.getElementById('addSignerModal')).hide();
+    this.reset();
+});
+
+function updateSignerCards() {
+    const container = document.getElementById('signersContainer');
+    const isSequential = document.querySelector('input[name="signing_order"]:checked').value === 'sequential';
+    
+    container.innerHTML = '';
+    
+    signers.forEach((signer, index) => {
+        const signerCard = document.createElement('div');
+        signerCard.className = 'signer-card';
+        
+        signerCard.innerHTML = `
+            <button type="button" class="btn btn-sm btn-outline-danger remove-signer" onclick="removeSigner(${signer.id})">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div class="workflow-step ${isSequential && index === 0 ? 'active' : ''}">
+                <div class="step-number ${isSequential && index === 0 ? 'active' : ''}">${index + 1}</div>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>${signer.name}</strong>
+                            <div class="small text-muted">${signer.email}</div>
+                            ${signer.role ? `<div class="small text-muted">${signer.role}</div>` : ''}
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-${getSignerTypeBadge(signer.type)}">${getSignerTypeLabel(signer.type)}</span>
+                            ${signer.required ? '<span class="badge bg-danger ms-1">Required</span>' : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" name="signers[${index}][name]" value="${signer.name}">
+            <input type="hidden" name="signers[${index}][email]" value="${signer.email}">
+            <input type="hidden" name="signers[${index}][role]" value="${signer.role}">
+            <input type="hidden" name="signers[${index}][type]" value="${signer.type}">
+            <input type="hidden" name="signers[${index}][required]" value="${signer.required}">
+        `;
+        
+        container.appendChild(signerCard);
+    });
+    
+    if (signers.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-users fa-2x mb-2"></i>
+                <div>No signers added yet</div>
+                <button type="button" class="btn btn-primary mt-2" onclick="addSigner()">
+                    <i class="fas fa-plus"></i> Add First Signer
+                </button>
+            </div>
+        `;
+    }
+}
+
+function removeSigner(signerId) {
+    signers = signers.filter(s => s.id !== signerId);
+    updateSignerCards();
+    updateStats();
+}
+
+function getSignerTypeBadge(type) {
+    const badges = {
+        'signature': 'primary',
+        'approval': 'success',
+        'review': 'info',
+        'cc': 'secondary'
+    };
+    return badges[type] || 'secondary';
+}
+
+function getSignerTypeLabel(type) {
+    const labels = {
+        'signature': 'Sign',
+        'approval': 'Approve',
+        'review': 'Review',
+        'cc': 'CC'
+    };
+    return labels[type] || 'Unknown';
+}
+
+function updateStats() {
+    document.getElementById('signerCount').textContent = signers.length;
+    
+    // Estimate time based on number of signers and workflow type
+    const isSequential = document.querySelector('input[name="signing_order"]:checked').value === 'sequential';
+    const baseTime = isSequential ? signers.length * 2 : Math.max(2, signers.length);
+    document.getElementById('estimatedTime').textContent = signers.length > 0 ? `${baseTime}h` : '-';
+}
+
+function updateWorkflowType() {
+    const isSequential = document.querySelector('input[name="signing_order"]:checked').value === 'sequential';
+    document.getElementById('workflowType').textContent = isSequential ? 'Sequential' : 'Parallel';
+}
+
+function previewDocument() {
+    const select = document.getElementById('document');
+    const option = select.options[select.selectedIndex];
+    
+    if (option.value) {
+        const preview = document.getElementById('documentPreview');
+        preview.style.display = 'block';
+        preview.innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-file-pdf fa-3x text-primary mb-3"></i>
+                <h6>${option.dataset.title}</h6>
+                <p class="text-muted">Document selected for signature request</p>
+                <a href="${option.dataset.url}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-external-link-alt"></i> View Document
+                </a>
+            </div>
+        `;
+    }
+}
+
+function loadQuickTemplate(templateType) {
+    const templates = {
+        'contract': {
+            message: 'Please review and sign this contract. If you have any questions, please contact me before signing.',
+            priority: 'high',
+            expires_days: 7,
+            require_auth: true
+        },
+        'nda': {
+            message: 'Please review and sign this Non-Disclosure Agreement. This will protect confidential information shared between parties.',
+            priority: 'normal',
+            expires_days: 14,
+            require_auth: false
+        },
+        'approval': {
+            message: 'Your approval is required for this document. Please review and approve at your earliest convenience.',
+            priority: 'high',
+            expires_days: 3,
+            require_auth: false
+        },
+        'consent': {
+            message: 'Please review and provide your consent by signing this form.',
+            priority: 'normal',
+            expires_days: 30,
+            require_auth: false
+        }
+    };
+    
+    const template = templates[templateType];
+    if (template) {
+        document.getElementById('message').value = template.message;
+        document.getElementById('priority').value = template.priority;
+        document.getElementById('requireAuth').checked = template.require_auth;
+        
+        // Set expiration date
+        const expirationDate = new Date();
+        expirationDate.setDate(expirationDate.getDate() + template.expires_days);
+        document.getElementById('expiresAt').value = expirationDate.toISOString().slice(0, 16);
+        
+        updateStats();
+    }
+}
+
+function previewRequest() {
+    const previewContent = document.getElementById('previewContent');
+    const selectedDoc = document.getElementById('document').selectedOptions[0];
+    const message = document.getElementById('message').value;
+    const priority = document.getElementById('priority').value;
+    
+    let html = `
+        <div class="card">
+            <div class="card-header">
+                <h6>Signature Request Preview</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Document:</strong> ${selectedDoc ? selectedDoc.text : 'No document selected'}
+                </div>
+                <div class="mb-3">
+                    <strong>Message:</strong>
+                    <div class="border p-2 rounded">${message || 'No message'}</div>
+                </div>
+                <div class="mb-3">
+                    <strong>Priority:</strong> 
+                    <span class="badge bg-${priority === 'urgent' ? 'danger' : priority === 'high' ? 'warning' : 'secondary'}">${priority}</span>
+                </div>
+                <div class="mb-3">
+                    <strong>Signers (${signers.length}):</strong>
+                    <ul class="list-group list-group-flush">
+    `;
+    
+    signers.forEach((signer, index) => {
+        html += `
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>${signer.name}</strong> (${signer.email})
+                    ${signer.role ? `<br><small class="text-muted">${signer.role}</small>` : ''}
+                </div>
+                <span class="badge bg-primary">${index + 1}</span>
+            </li>
+        `;
+    });
+    
+    html += `
+                    </ul>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    previewContent.innerHTML = html;
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+function testRequest() {
+    alert('Test request functionality will be implemented');
+}
+
+function sendFromPreview() {
+    bootstrap.Modal.getInstance(document.getElementById('previewModal')).hide();
+    document.querySelector('button[name="action"][value="send_request"]').click();
+}
+
+// Form validation
+document.getElementById('signatureRequestForm').addEventListener('submit', function(e) {
+    const documentSource = document.querySelector('input[name="document_source"]:checked').value;
+    
+    // Validate document selection
+    if (documentSource === 'existing' && !document.getElementById('document').value) {
+        e.preventDefault();
+        alert('Please select a document.');
+        return false;
+    }
+    
+    if (documentSource === 'upload' && !document.getElementById('uploadFile').files.length) {
+        e.preventDefault();
+        alert('Please upload a document.');
+        return false;
+    }
+    
+    if (documentSource === 'template' && !document.getElementById('selectedTemplate').value) {
+        e.preventDefault();
+        alert('Please select a template.');
+        return false;
+    }
+    
+    // Validate signers
+    if (signers.length === 0) {
+        e.preventDefault();
+        alert('Please add at least one signer.');
+        return false;
+    }
+    
+    // Add signers data to form
+    const signersInput = document.createElement('input');
+    signersInput.type = 'hidden';
+    signersInput.name = 'signers_data';
+    signersInput.value = JSON.stringify(signers);
+    this.appendChild(signersInput);
+});
+
+// File upload validation
+document.getElementById('uploadFile')?.addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) {
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            alert('File size must be less than 10MB');
+            this.value = '';
+            return;
+        }
+        
+        // Auto-fill document title from filename
+        if (!document.getElementById('documentTitle').value) {
+            const filename = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+            document.getElementById('documentTitle').value = filename;
+        }
+    }
+});
+
+// Set default expiration to 7 days from now
+const defaultExpiration = new Date();
+defaultExpiration.setDate(defaultExpiration.getDate() + 7);
+document.getElementById('expiresAt').value = defaultExpiration.toISOString().slice(0, 16);
+
+// Initialize
+updateStats();
+updateWorkflowType();
+</script>
+{% endblock %}

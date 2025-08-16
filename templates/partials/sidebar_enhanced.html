@@ -206,32 +206,32 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="#" onclick="showInvoices()">
+                                    <a class="nav-link" href="{% url 'invoices_list' %}">
                                         <i class="bi bi-file-earmark-text nav-icon"></i>
                                         <span class="nav-text">Invoices</span>
                                         <span class="badge bg-warning ms-auto" id="pending-invoices-count">0</span>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="#" onclick="generateInvoice()">
+                                    <a class="nav-link" href="{% url 'generate_invoice' %}">
                                         <i class="bi bi-plus-circle nav-icon"></i>
                                         <span class="nav-text">Generate Invoice</span>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="#" onclick="showExpenses()">
+                                    <a class="nav-link" href="{% url 'expenses_list' %}">
                                         <i class="bi bi-credit-card nav-icon"></i>
                                         <span class="nav-text">Expenses</span>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="#" onclick="showPayments()">
+                                    <a class="nav-link" href="{% url 'payments_list' %}">
                                         <i class="bi bi-cash-coin nav-icon"></i>
                                         <span class="nav-text">Payments</span>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="#" onclick="generateTimeReport()">
+                                    <a class="nav-link" href="{% url 'billing_dashboard' %}">
                                         <i class="bi bi-clock nav-icon"></i>
                                         <span class="nav-text">Time Tracking</span>
                                     </a>
@@ -382,33 +382,27 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="#" onclick="generateFinancialReport()">
+                                    <a class="nav-link" href="{% url 'analytics_dashboard' %}">
                                         <i class="bi bi-currency-dollar nav-icon"></i>
-                                        <span class="nav-text">Financial Reports</span>
+                                        <span class="nav-text">Financial Analysis</span>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="#" onclick="generateCaseReport()">
+                                    <a class="nav-link" href="{% url 'analytics_dashboard' %}">
                                         <i class="bi bi-person-check nav-icon"></i>
-                                        <span class="nav-text">Performance</span>
+                                        <span class="nav-text">Performance Metrics</span>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="#" onclick="generateCaseOutcomeReport()">
+                                    <a class="nav-link" href="{% url 'enhanced_dashboard' %}">
                                         <i class="bi bi-trophy nav-icon"></i>
-                                        <span class="nav-text">Case Outcomes</span>
+                                        <span class="nav-text">Enhanced Dashboard</span>
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'enhanced_dashboard' %}?view=kpi">
+                                    <a class="nav-link" href="{% url 'analytics_dashboard' %}">
                                         <i class="bi bi-bullseye nav-icon"></i>
-                                        <span class="nav-text">KPI Dashboard</span>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="#" onclick="openCustomReports()">
-                                        <i class="bi bi-sliders nav-icon"></i>
-                                        <span class="nav-text">Custom Reports</span>
+                                        <span class="nav-text">All Analytics</span>
                                     </a>
                                 </li>
                             </ul>

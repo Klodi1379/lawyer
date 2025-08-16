@@ -1,0 +1,670 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Analytics Dashboard - Legal Case Manager{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+<style>
+.analytics-card {
+    transition: transform 0.2s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.analytics-card:hover {
+    transform: translateY(-2px);
+}
+
+.metric-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    border: none;
+}
+
+.metric-card.financial {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.metric-card.productivity {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.metric-card.success {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.metric-card.warning {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.chart-container {
+    position: relative;
+    height: 400px;
+    margin: 20px 0;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-bottom: 10px;
+}
+
+.trend-indicator {
+    font-size: 0.8rem;
+}
+
+.trend-up {
+    color: #28a745;
+}
+
+.trend-down {
+    color: #dc3545;
+}
+
+.widget-header {
+    border-bottom: 3px solid #007bff;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+}
+
+.deadline-item {
+    border-left: 4px solid #ffc107;
+    padding-left: 15px;
+    margin-bottom: 10px;
+    padding: 10px 15px;
+    background: #f8f9fa;
+    border-radius: 5px;
+}
+
+.deadline-urgent {
+    border-left-color: #dc3545;
+    background: #fff5f5;
+}
+
+.deadline-soon {
+    border-left-color: #fd7e14;
+    background: #fffaf0;
+}
+
+.filter-tabs {
+    border-bottom: 1px solid #dee2e6;
+    margin-bottom: 20px;
+}
+
+.filter-tabs .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #6c757d;
+}
+
+.filter-tabs .nav-link.active {
+    border-bottom-color: #007bff;
+    color: #007bff;
+}
+
+.performance-bar {
+    height: 20px;
+    background-color: #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.performance-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #0abde3);
+    transition: width 0.5s ease;
+}
+
+.kpi-row {
+    margin-bottom: 30px;
+}
+
+.chart-card {
+    margin-bottom: 30px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-graph-up"></i> Analytics Dashboard</h2>
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-primary" id="refreshAnalytics">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+        <button type="button" class="btn btn-outline-success" id="exportPDF">
+            <i class="bi bi-file-earmark-pdf"></i> Export PDF
+        </button>
+    </div>
+</div>
+
+<!-- Period Filter Tabs -->
+<ul class="nav nav-tabs filter-tabs" id="periodTabs">
+    <li class="nav-item">
+        <a class="nav-link active" data-period="month" href="#" onclick="return false;">Last Month</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-period="quarter" href="#" onclick="return false;">Last 3 Months</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-period="year" href="#" onclick="return false;">Last Year</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-period="custom" href="#" onclick="return false;">Custom Range</a>
+    </li>
+</ul>
+
+<!-- Custom Date Range (hidden by default) -->
+<div class="row mb-4" id="customDateRange" style="display: none;">
+    <div class="col-md-4">
+        <input type="date" class="form-control" id="dateFrom" placeholder="From">
+    </div>
+    <div class="col-md-4">
+        <input type="date" class="form-control" id="dateTo" placeholder="To">
+    </div>
+    <div class="col-md-4">
+        <button type="button" class="btn btn-primary" id="applyCustomRange">Apply</button>
+    </div>
+</div>
+
+<!-- Key Performance Indicators Row -->
+<div class="row kpi-row">
+    <div class="col-md-3">
+        <div class="card metric-card analytics-card">
+            <div class="card-body text-center">
+                <div class="stat-number" id="totalCases">{{ case_stats.total_cases|default:0 }}</div>
+                <div class="stat-label">Total Cases</div>
+                <div class="trend-indicator">
+                    <i class="bi bi-trending-up trend-up"></i>
+                    <span class="trend-value">{{ case_stats.completion_rate|default:0|floatformat:1 }}% completed</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card financial analytics-card">
+            <div class="card-body text-center">
+                <div class="stat-number" id="totalRevenue">€{{ financial_overview.total_revenue|default:0|floatformat:0 }}</div>
+                <div class="stat-label">Total Revenue</div>
+                <div class="trend-indicator">
+                    <i class="bi bi-trending-up trend-up"></i>
+                    <span class="trend-value">{{ financial_overview.collection_rate|default:0|floatformat:1 }}% collected</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card productivity analytics-card">
+            <div class="card-body text-center">
+                <div class="stat-number" id="totalHours">{{ productivity.hours_logged|default:0|floatformat:1 }}</div>
+                <div class="stat-label">Hours Logged</div>
+                <div class="trend-indicator">
+                    <i class="bi bi-clock trend-up"></i>
+                    <span class="trend-value">{{ productivity.avg_hours_per_case|default:0|floatformat:1 }}h per case</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card success analytics-card">
+            <div class="card-body text-center">
+                <div class="stat-number" id="efficiency">{{ productivity.efficiency_rate|default:0|floatformat:1 }}%</div>
+                <div class="stat-label">Success Rate</div>
+                <div class="trend-indicator">
+                    <i class="bi bi-check-circle trend-up"></i>
+                    <span class="trend-value">{{ deadlines.deadline_compliance_rate|default:0|floatformat:1 }}% on time</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Secondary KPIs Row -->
+<div class="row kpi-row">
+    <div class="col-md-3">
+        <div class="card metric-card warning analytics-card">
+            <div class="card-body text-center">
+                <div class="stat-number">{{ quick_stats.total_active_cases|default:0 }}</div>
+                <div class="stat-label">Active Cases</div>
+                <div class="trend-indicator">
+                    <i class="bi bi-folder-open"></i>
+                    <span class="trend-value">Currently working</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card analytics-card">
+            <div class="card-body text-center">
+                <div class="stat-number">{{ financial_overview.pending_revenue|default:0|floatformat:0 }}</div>
+                <div class="stat-label">Pending Revenue (€)</div>
+                <div class="trend-indicator">
+                    <i class="bi bi-hourglass-split"></i>
+                    <span class="trend-value">{{ quick_stats.pending_invoices|default:0 }} invoices</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card productivity analytics-card">
+            <div class="card-body text-center">
+                <div class="stat-number">{{ deadlines.upcoming_deadlines|default:0 }}</div>
+                <div class="stat-label">Upcoming Deadlines</div>
+                <div class="trend-indicator">
+                    <i class="bi bi-alarm"></i>
+                    <span class="trend-value">{{ deadlines.next_7_days|default:0 }} this week</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card financial analytics-card">
+            <div class="card-body text-center">
+                <div class="stat-number">{{ financial_overview.avg_hourly_rate|default:0|floatformat:0 }}</div>
+                <div class="stat-label">Avg. Hourly Rate (€)</div>
+                <div class="trend-indicator">
+                    <i class="bi bi-currency-euro"></i>
+                    <span class="trend-value">Per billable hour</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row">
+    <!-- Case Distribution Chart -->
+    <div class="col-md-6 chart-card">
+        <div class="card analytics-card">
+            <div class="card-header widget-header">
+                <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Case Distribution by Type</h5>
+            </div>
+            <div class="card-body">
+                {% if case_stats.cases_by_type %}
+                <div class="chart-container">
+                    <canvas id="caseDistributionChart"></canvas>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-pie-chart fa-3x"></i>
+                    <p>No case data available</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Revenue Trends Chart -->
+    <div class="col-md-6 chart-card">
+        <div class="card analytics-card">
+            <div class="card-header widget-header">
+                <h5 class="mb-0"><i class="bi bi-currency-euro"></i> Revenue by Month</h5>
+            </div>
+            <div class="card-body">
+                {% if financial_overview.revenue_by_month %}
+                <div class="chart-container">
+                    <canvas id="revenueTrendsChart"></canvas>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-graph-up fa-3x"></i>
+                    <p>No revenue data available</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Cards Row -->
+<div class="row">
+    <!-- Top Clients -->
+    <div class="col-md-4">
+        <div class="card analytics-card">
+            <div class="card-header widget-header">
+                <h5 class="mb-0"><i class="bi bi-people"></i> Top Clients</h5>
+            </div>
+            <div class="card-body">
+                {% if financial_overview.top_clients %}
+                    {% for client in financial_overview.top_clients %}
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2" style="background: #f8f9fa; border-radius: 5px;">
+                        <span class="fw-bold">{{ client.issued_to__full_name }}</span>
+                        <span class="badge bg-primary">€{{ client.total|floatformat:0 }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-people fa-3x"></i>
+                    <p>No client data available</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upcoming Deadlines -->
+    <div class="col-md-4">
+        <div class="card analytics-card">
+            <div class="card-header widget-header">
+                <h5 class="mb-0"><i class="bi bi-alarm"></i> Upcoming Deadlines</h5>
+            </div>
+            <div class="card-body">
+                {% if deadlines.deadline_list %}
+                    {% for deadline in deadlines.deadline_list %}
+                    <div class="deadline-item 
+                        {% if deadline.days_remaining <= 2 %}deadline-urgent
+                        {% elif deadline.days_remaining <= 7 %}deadline-soon{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="fw-bold d-block">{{ deadline.title }}</span>
+                                <small class="text-muted">{{ deadline.case }}</small>
+                            </div>
+                            <span class="badge bg-{% if deadline.days_remaining <= 2 %}danger{% elif deadline.days_remaining <= 7 %}warning{% else %}info{% endif %}">
+                                {{ deadline.days_remaining }} day{{ deadline.days_remaining|pluralize }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-calendar-check fa-3x"></i>
+                    <p>No upcoming deadlines</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Case Status Overview -->
+    <div class="col-md-4">
+        <div class="card analytics-card">
+            <div class="card-header widget-header">
+                <h5 class="mb-0"><i class="bi bi-clipboard-data"></i> Case Status Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Open Cases</span>
+                        <span class="badge bg-primary">{{ case_stats.open_cases|default:0 }}</span>
+                    </div>
+                    <div class="progress mt-1" style="height: 5px;">
+                        <div class="progress-bar bg-primary" style="width: {% widthratio case_stats.open_cases case_stats.total_cases 100 %}%"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>In Court</span>
+                        <span class="badge bg-warning">{{ case_stats.in_court_cases|default:0 }}</span>
+                    </div>
+                    <div class="progress mt-1" style="height: 5px;">
+                        <div class="progress-bar bg-warning" style="width: {% widthratio case_stats.in_court_cases case_stats.total_cases 100 %}%"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>On Appeal</span>
+                        <span class="badge bg-info">{{ case_stats.appeal_cases|default:0 }}</span>
+                    </div>
+                    <div class="progress mt-1" style="height: 5px;">
+                        <div class="progress-bar bg-info" style="width: {% widthratio case_stats.appeal_cases case_stats.total_cases 100 %}%"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Closed Cases</span>
+                        <span class="badge bg-success">{{ case_stats.closed_cases|default:0 }}</span>
+                    </div>
+                    <div class="progress mt-1" style="height: 5px;">
+                        <div class="progress-bar bg-success" style="width: {% widthratio case_stats.closed_cases case_stats.total_cases 100 %}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Team Performance (Admin only) -->
+{% if user.role == 'admin' and team_performance.team_stats %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card analytics-card">
+            <div class="card-header widget-header">
+                <h5 class="mb-0"><i class="bi bi-person-badge"></i> Team Performance</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for member in team_performance.team_stats %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="p-3" style="background: #f8f9fa; border-radius: 10px;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">{{ member.lawyer }}</span>
+                                <span class="badge bg-success">{{ member.efficiency }}%</span>
+                            </div>
+                            <div class="performance-bar mb-2">
+                                <div class="performance-fill" style="width: {{ member.efficiency }}%"></div>
+                            </div>
+                            <small class="text-muted">
+                                {{ member.cases_closed }}/{{ member.cases_assigned }} cases completed
+                                • {{ member.hours_logged }}h logged
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Loading Spinner -->
+<div class="d-none" id="loadingSpinner">
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get charts data from backend
+    const chartsData = {{ charts_data|safe }};
+    console.log('Charts data:', chartsData);
+    
+    let caseDistributionChart, revenueTrendsChart;
+    
+    // Initialize charts if data exists
+    initializeCharts();
+    
+    // Event listeners
+    document.getElementById('refreshAnalytics').addEventListener('click', refreshAnalytics);
+    document.getElementById('exportPDF').addEventListener('click', exportPDF);
+    
+    // Period filter tabs
+    document.querySelectorAll('#periodTabs .nav-link').forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Update active tab
+            document.querySelectorAll('#periodTabs .nav-link').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            const period = this.dataset.period;
+            
+            if (period === 'custom') {
+                document.getElementById('customDateRange').style.display = 'block';
+            } else {
+                document.getElementById('customDateRange').style.display = 'none';
+                loadAnalyticsData(period);
+            }
+        });
+    });
+    
+    // Custom date range
+    document.getElementById('applyCustomRange').addEventListener('click', function() {
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        
+        if (dateFrom && dateTo) {
+            loadAnalyticsData('custom', dateFrom, dateTo);
+        }
+    });
+    
+    function initializeCharts() {
+        // Case Distribution Chart
+        const caseDistCtx = document.getElementById('caseDistributionChart');
+        if (caseDistCtx && chartsData.case_distribution) {
+            const labels = Object.keys(chartsData.case_distribution);
+            const data = Object.values(chartsData.case_distribution);
+            
+            if (labels.length > 0) {
+                caseDistributionChart = new Chart(caseDistCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels.map(label => label.charAt(0).toUpperCase() + label.slice(1)),
+                        datasets: [{
+                            data: data,
+                            backgroundColor: [
+                                '#007bff', '#28a745', '#ffc107', '#dc3545', '#6c757d', '#17a2b8'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Revenue Trends Chart
+        const revenueCtx = document.getElementById('revenueTrendsChart');
+        if (revenueCtx && chartsData.revenue_trends) {
+            const labels = Object.keys(chartsData.revenue_trends);
+            const data = Object.values(chartsData.revenue_trends);
+            
+            if (labels.length > 0) {
+                revenueTrendsChart = new Chart(revenueCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Revenue (€)',
+                            data: data,
+                            backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '€' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    }
+    
+    function loadAnalyticsData(period, dateFrom = null, dateTo = null) {
+        showSpinner();
+        
+        let url = '/analytics/api/?period=' + period;
+        if (dateFrom && dateTo) {
+            url += `&date_from=${dateFrom}&date_to=${dateTo}`;
+        }
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                updateDashboard(data);
+                hideSpinner();
+            })
+            .catch(error => {
+                console.error('Error loading analytics:', error);
+                hideSpinner();
+            });
+    }
+    
+    function updateDashboard(data) {
+        // Update KPI metrics
+        if (data.case_stats) {
+            document.getElementById('totalCases').textContent = data.case_stats.total_cases || 0;
+        }
+        if (data.financial_overview) {
+            document.getElementById('totalRevenue').textContent = '€' + (data.financial_overview.total_revenue || 0).toLocaleString();
+        }
+        if (data.productivity) {
+            document.getElementById('totalHours').textContent = data.productivity.hours_logged || 0;
+            document.getElementById('efficiency').textContent = (data.productivity.efficiency_rate || 0) + '%';
+        }
+        
+        console.log('Dashboard updated with new data');
+    }
+    
+    function refreshAnalytics() {
+        const activePeriod = document.querySelector('#periodTabs .nav-link.active').dataset.period;
+        loadAnalyticsData(activePeriod);
+    }
+    
+    function exportPDF() {
+        window.open('/analytics/export/pdf/', '_blank');
+    }
+    
+    function showSpinner() {
+        document.getElementById('loadingSpinner').classList.remove('d-none');
+    }
+    
+    function hideSpinner() {
+        document.getElementById('loadingSpinner').classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,782 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Document Signatures - Legal Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+.signature-card {
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+    position: relative;
+}
+.signature-card:hover {
+    transform: translateY(-2px);
+}
+.signature-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+.signature-preview {
+    height: 80px;
+    background: #f8f9fa;
+    border: 1px dashed #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+.signature-image {
+    max-height: 60px;
+    max-width: 100%;
+}
+.signature-workflow {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+.progress-step {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    position: relative;
+}
+.progress-step::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 30px;
+    width: 2px;
+    height: 20px;
+    background: #dee2e6;
+}
+.progress-step:last-child::after {
+    display: none;
+}
+.progress-step.completed .step-icon {
+    background: #28a745;
+    color: white;
+}
+.progress-step.current .step-icon {
+    background: #007bff;
+    color: white;
+    animation: pulse 2s infinite;
+}
+.progress-step.pending .step-icon {
+    background: #6c757d;
+    color: white;
+}
+.step-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    font-size: 0.8rem;
+}
+.signature-request-card {
+    border-left: 4px solid #007bff;
+    background: white;
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 0 8px 8px 0;
+}
+.signature-request-card.urgent {
+    border-left-color: #dc3545;
+}
+.signature-request-card.completed {
+    border-left-color: #28a745;
+    background: #f8fff9;
+}
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'document_editor:dashboard' %}">Document Editor</a></li>
+                            <li class="breadcrumb-item active">Signatures</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">✍️ Document Signatures</h1>
+                    <p class="text-muted">Manage document signing and approval processes</p>
+                </div>
+                <div>
+                    <a href="{% url 'document_editor:signature_request_create' %}" class="btn btn-primary">
+                        <i class="fas fa-pen-fancy"></i> Request Signature
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ total_requests|default:0 }}</h4>
+                            <p class="card-text">Total Requests</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-file-signature fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ pending_requests|default:0 }}</h4>
+                            <p class="card-text">Pending Signatures</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-clock fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ completed_requests|default:0 }}</h4>
+                            <p class="card-text">Completed</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ expired_requests|default:0 }}</h4>
+                            <p class="card-text">Expired/Overdue</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter and Search -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <input type="text" name="search" class="form-control" placeholder="Search documents..." value="{{ request.GET.search }}">
+                        </div>
+                        <div class="col-md-2">
+                            <select name="status" class="form-control">
+                                <option value="">All Status</option>
+                                <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+                                <option value="signed" {% if request.GET.status == 'signed' %}selected{% endif %}>Signed</option>
+                                <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>Completed</option>
+                                <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Expired</option>
+                                <option value="declined" {% if request.GET.status == 'declined' %}selected{% endif %}>Declined</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="signer" class="form-control">
+                                <option value="">All Signers</option>
+                                <option value="me" {% if request.GET.signer == 'me' %}selected{% endif %}>Signed by Me</option>
+                                {% for signer in signers %}
+                                <option value="{{ signer.id }}" {% if request.GET.signer == signer.id|stringformat:'s' %}selected{% endif %}>
+                                    {{ signer.get_full_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="priority" class="form-control">
+                                <option value="">All Priorities</option>
+                                <option value="urgent" {% if request.GET.priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                                <option value="high" {% if request.GET.priority == 'high' %}selected{% endif %}>High</option>
+                                <option value="normal" {% if request.GET.priority == 'normal' %}selected{% endif %}>Normal</option>
+                                <option value="low" {% if request.GET.priority == 'low' %}selected{% endif %}>Low</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                        <div class="col-md-1">
+                            <button type="button" class="btn btn-outline-secondary w-100" onclick="exportSignatures()">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Signature Requests -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Signature Requests</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary" onclick="bulkRemind()">
+                            <i class="fas fa-bell"></i> Bulk Remind
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="bulkCancel()">
+                            <i class="fas fa-times"></i> Bulk Cancel
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% for request in signature_requests %}
+                    <div class="signature-request-card {% if request.priority == 'urgent' %}urgent{% elif request.status == 'completed' %}completed{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="form-check me-3">
+                                <input type="checkbox" class="form-check-input signature-checkbox" value="{{ request.id }}">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <a href="{% url 'document_editor:signature_detail' request.id %}" class="text-decoration-none">
+                                                {{ request.document.title }}
+                                            </a>
+                                        </h6>
+                                        <p class="text-muted mb-2">{{ request.message|default:"No message"|truncatechars:100 }}</p>
+                                    </div>
+                                    <div class="text-end">
+                                        {% if request.status == 'pending' %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% elif request.status == 'signed' %}
+                                            <span class="badge bg-info">Signed</span>
+                                        {% elif request.status == 'completed' %}
+                                            <span class="badge bg-success">Completed</span>
+                                        {% elif request.status == 'expired' %}
+                                            <span class="badge bg-danger">Expired</span>
+                                        {% elif request.status == 'declined' %}
+                                            <span class="badge bg-secondary">Declined</span>
+                                        {% endif %}
+                                        
+                                        {% if request.priority == 'urgent' %}
+                                            <span class="badge bg-danger ms-1">Urgent</span>
+                                        {% elif request.priority == 'high' %}
+                                            <span class="badge bg-warning ms-1">High</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Signers Progress -->
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <small class="text-muted">Signers:</small>
+                                        <div class="d-flex flex-wrap">
+                                            {% for signer in request.signers.all %}
+                                            <div class="d-flex align-items-center me-3 mb-1">
+                                                <div class="step-icon small me-1 {% if signer.signed_at %}completed{% elif signer.is_current %}current{% else %}pending{% endif %}">
+                                                    {% if signer.signed_at %}
+                                                        <i class="fas fa-check"></i>
+                                                    {% elif signer.is_current %}
+                                                        <i class="fas fa-pen"></i>
+                                                    {% else %}
+                                                        <i class="fas fa-clock"></i>
+                                                    {% endif %}
+                                                </div>
+                                                <span class="small">{{ signer.signer.get_full_name|truncatechars:15 }}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <small class="text-muted">
+                                            Created {{ request.created_at|timesince }} ago
+                                            {% if request.expires_at %}
+                                                <br>Expires {{ request.expires_at|timeuntil }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Progress Bar -->
+                                <div class="mt-2">
+                                    <div class="progress" style="height: 4px;">
+                                        <div class="progress-bar" style="width: {{ request.completion_percentage }}%"></div>
+                                    </div>
+                                    <small class="text-muted">{{ request.signed_count }}/{{ request.total_signers }} signed</small>
+                                </div>
+                            </div>
+                            
+                            <!-- Actions -->
+                            <div class="btn-group btn-group-sm ms-3">
+                                <a href="{% url 'document_editor:signature_detail' request.id %}" class="btn btn-outline-primary" title="View">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if request.status == 'pending' %}
+                                <button type="button" class="btn btn-outline-warning" onclick="sendReminder({{ request.id }})" title="Send Reminder">
+                                    <i class="fas fa-bell"></i>
+                                </button>
+                                {% endif %}
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="{% url 'document_editor:signature_duplicate' request.id %}">
+                                            <i class="fas fa-copy"></i> Duplicate
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="downloadSignedDocument({{ request.id }})">
+                                            <i class="fas fa-download"></i> Download
+                                        </a></li>
+                                        {% if request.status == 'pending' %}
+                                        <li><a class="dropdown-item" href="#" onclick="extendDeadline({{ request.id }})">
+                                            <i class="fas fa-calendar-plus"></i> Extend Deadline
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item text-danger" href="#" onclick="cancelRequest({{ request.id }})">
+                                            <i class="fas fa-times"></i> Cancel Request
+                                        </a></li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-file-signature fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No Signature Requests Found</h5>
+                        <p class="text-muted">
+                            {% if request.GET.search or request.GET.status or request.GET.signer %}
+                                No signature requests match your current filters. 
+                                <a href="{% url 'document_editor:signature_list' %}">Clear filters</a>
+                            {% else %}
+                                Create your first signature request to get started.
+                            {% endif %}
+                        </p>
+                        <a href="{% url 'document_editor:signature_request_create' %}" class="btn btn-primary">
+                            <i class="fas fa-pen-fancy"></i> Create First Request
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Pagination -->
+                {% if signature_requests.has_other_pages %}
+                <div class="card-footer">
+                    <nav aria-label="Signature requests pagination">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if signature_requests.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ signature_requests.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.signer %}&signer={{ request.GET.signer }}{% endif %}">Previous</a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in signature_requests.paginator.page_range %}
+                                {% if signature_requests.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > signature_requests.number|add:'-3' and num < signature_requests.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.signer %}&signer={{ request.GET.signer }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if signature_requests.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ signature_requests.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.signer %}&signer={{ request.GET.signer }}{% endif %}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4 mb-4">
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'document_editor:signature_request_create' %}" class="btn btn-primary">
+                            <i class="fas fa-pen-fancy"></i> New Signature Request
+                        </a>
+                        <a href="{% url 'document_editor:signature_templates' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-file-alt"></i> Signature Templates
+                        </a>
+                        <a href="{% url 'document_editor:signature_settings' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-cog"></i> Signature Settings
+                        </a>
+                        <button type="button" class="btn btn-outline-info" onclick="bulkUpload()">
+                            <i class="fas fa-upload"></i> Bulk Upload
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    {% for activity in recent_activities|slice:":5" %}
+                    <div class="d-flex align-items-start mb-3">
+                        <div class="flex-shrink-0">
+                            {% if activity.activity_type == 'signed' %}
+                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                            {% elif activity.activity_type == 'requested' %}
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
+                                    <i class="fas fa-pen"></i>
+                                </div>
+                            {% elif activity.activity_type == 'declined' %}
+                                <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
+                                    <i class="fas fa-times"></i>
+                                </div>
+                            {% else %}
+                                <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
+                                    <i class="fas fa-info"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="small">
+                                <strong>{{ activity.user.get_full_name }}</strong>
+                                {{ activity.description }}
+                            </div>
+                            <div class="text-muted small">{{ activity.created_at|timesince }} ago</div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center">No recent activity</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Signature Statistics -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">This Month</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h4 class="text-primary">{{ monthly_stats.requests|default:0 }}</h4>
+                            <small class="text-muted">Requests Sent</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-success">{{ monthly_stats.completed|default:0 }}</h4>
+                            <small class="text-muted">Completed</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h4 class="text-info">{{ monthly_stats.avg_time|default:0 }}h</h4>
+                            <small class="text-muted">Avg. Time</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-warning">{{ monthly_stats.completion_rate|default:0 }}%</h4>
+                            <small class="text-muted">Success Rate</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Upcoming Deadlines -->
+            {% if upcoming_deadlines %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Upcoming Deadlines</h5>
+                </div>
+                <div class="card-body">
+                    {% for request in upcoming_deadlines %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                        <div>
+                            <strong>{{ request.document.title|truncatechars:25 }}</strong>
+                            <div class="small text-muted">{{ request.current_signer.get_full_name }}</div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-{% if request.is_overdue %}danger{% elif request.expires_soon %}warning{% else %}secondary{% endif %}">
+                                {{ request.expires_at|timeuntil }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Extend Deadline Modal -->
+<div class="modal fade" id="extendDeadlineModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Extend Deadline</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="extendDeadlineForm">
+                <div class="modal-body">
+                    <input type="hidden" id="requestId" name="request_id">
+                    <div class="mb-3">
+                        <label for="newDeadline" class="form-label">New Deadline</label>
+                        <input type="datetime-local" class="form-control" id="newDeadline" name="new_deadline" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="extendReason" class="form-label">Reason (Optional)</label>
+                        <textarea class="form-control" id="extendReason" name="reason" rows="3" placeholder="Reason for extending deadline..."></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="notifySigners" name="notify_signers" checked>
+                        <label class="form-check-label" for="notifySigners">
+                            Notify signers about deadline extension
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Extend Deadline</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function sendReminder(requestId) {
+    if (confirm('Send reminder to pending signers?')) {
+        fetch(`/document-editor/signatures/${requestId}/remind/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Reminder sent to ${data.recipients_count} signer(s)!`);
+            } else {
+                alert('Error sending reminder: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error sending reminder: ' + error);
+        });
+    }
+}
+
+function cancelRequest(requestId) {
+    if (confirm('Cancel this signature request? This action cannot be undone.')) {
+        fetch(`/document-editor/signatures/${requestId}/cancel/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Signature request cancelled successfully!');
+                location.reload();
+            } else {
+                alert('Error cancelling request: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error cancelling request: ' + error);
+        });
+    }
+}
+
+function extendDeadline(requestId) {
+    document.getElementById('requestId').value = requestId;
+    
+    // Set default deadline to 7 days from now
+    const now = new Date();
+    now.setDate(now.getDate() + 7);
+    document.getElementById('newDeadline').value = now.toISOString().slice(0, 16);
+    
+    new bootstrap.Modal(document.getElementById('extendDeadlineModal')).show();
+}
+
+function downloadSignedDocument(requestId) {
+    window.open(`/document-editor/signatures/${requestId}/download/`, '_blank');
+}
+
+function bulkRemind() {
+    const selectedIds = getSelectedRequests();
+    
+    if (selectedIds.length === 0) {
+        alert('Please select signature requests first.');
+        return;
+    }
+    
+    if (confirm(`Send reminders for ${selectedIds.length} selected request(s)?`)) {
+        fetch('/document-editor/signatures/bulk-remind/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ request_ids: selectedIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Reminders sent for ${data.sent_count} request(s)!`);
+                location.reload();
+            } else {
+                alert('Error sending reminders: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error sending reminders: ' + error);
+        });
+    }
+}
+
+function bulkCancel() {
+    const selectedIds = getSelectedRequests();
+    
+    if (selectedIds.length === 0) {
+        alert('Please select signature requests first.');
+        return;
+    }
+    
+    if (confirm(`Cancel ${selectedIds.length} selected request(s)? This action cannot be undone.`)) {
+        fetch('/document-editor/signatures/bulk-cancel/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ request_ids: selectedIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`${data.cancelled_count} request(s) cancelled successfully!`);
+                location.reload();
+            } else {
+                alert('Error cancelling requests: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error cancelling requests: ' + error);
+        });
+    }
+}
+
+function bulkUpload() {
+    alert('Bulk upload functionality will be implemented');
+}
+
+function exportSignatures() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', 'true');
+    window.open('/document-editor/signatures/export/?' + params.toString(), '_blank');
+}
+
+function getSelectedRequests() {
+    const checkboxes = document.querySelectorAll('.signature-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+// Extend deadline form submission
+document.getElementById('extendDeadlineForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const requestId = formData.get('request_id');
+    
+    fetch(`/document-editor/signatures/${requestId}/extend/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Deadline extended successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('extendDeadlineModal')).hide();
+            location.reload();
+        } else {
+            alert('Error extending deadline: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error extending deadline: ' + error);
+    });
+});
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Auto-submit form on select change
+document.querySelectorAll('select[name="status"], select[name="signer"], select[name="priority"]').forEach(select => {
+    select.addEventListener('change', function() {
+        this.form.submit();
+    });
+});
+
+// Select all functionality
+document.getElementById('selectAll')?.addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.signature-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+    });
+});
+</script>
+{% endblock %}

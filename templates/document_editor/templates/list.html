@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Document Templates - Document Editor{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'document_editor:dashboard' %}">Document Editor</a></li>
+                            <li class="breadcrumb-item active">Templates</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">📋 Document Templates</h1>
+                </div>
+                <div>
+                    <a href="{% url 'document_editor:template_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create Template
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter and Search -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="search" class="form-control" placeholder="Search templates..." value="{{ request.GET.search }}">
+                        </div>
+                        <div class="col-md-3">
+                            <select name="category" class="form-control">
+                                <option value="">All Categories</option>
+                                <option value="contract" {% if request.GET.category == 'contract' %}selected{% endif %}>Contracts</option>
+                                <option value="letter" {% if request.GET.category == 'letter' %}selected{% endif %}>Letters</option>
+                                <option value="legal" {% if request.GET.category == 'legal' %}selected{% endif %}>Legal Documents</option>
+                                <option value="business" {% if request.GET.category == 'business' %}selected{% endif %}>Business</option>
+                                <option value="personal" {% if request.GET.category == 'personal' %}selected{% endif %}>Personal</option>
+                                <option value="other" {% if request.GET.category == 'other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="access_level" class="form-control">
+                                <option value="">All Access Levels</option>
+                                <option value="public" {% if request.GET.access_level == 'public' %}selected{% endif %}>Public</option>
+                                <option value="team" {% if request.GET.access_level == 'team' %}selected{% endif %}>Team</option>
+                                <option value="private" {% if request.GET.access_level == 'private' %}selected{% endif %}>Private</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates Grid -->
+    <div class="row">
+        {% if templates %}
+            {% for template in templates %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span class="badge bg-{% if template.category == 'contract' %}primary{% elif template.category == 'letter' %}success{% elif template.category == 'legal' %}warning{% elif template.category == 'business' %}info{% else %}secondary{% endif %}">
+                            {{ template.get_category_display|default:template.category|title }}
+                        </span>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'document_editor:template_detail' template.id %}">
+                                    <i class="fas fa-eye"></i> View
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="useTemplate({{ template.id }})">
+                                    <i class="fas fa-file-plus"></i> Create Document
+                                </a></li>
+                                {% if template.created_by == request.user or request.user.is_staff %}
+                                <li><a class="dropdown-item" href="{% url 'document_editor:template_edit' template.id %}">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-warning" href="#" onclick="duplicateTemplate({{ template.id }})">
+                                    <i class="fas fa-copy"></i> Duplicate
+                                </a></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'document_editor:template_delete' template.id %}">
+                                    <i class="fas fa-trash"></i> Delete
+                                </a></li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">{{ template.name }}</h5>
+                        <p class="card-text text-muted">{{ template.description|truncatechars:100 }}</p>
+                        
+                        <!-- Template Stats -->
+                        <div class="row text-center mt-3">
+                            <div class="col-4">
+                                <small class="text-muted">
+                                    <i class="fas fa-file"></i><br>
+                                    {{ template.usage_count|default:0 }} uses
+                                </small>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted">
+                                    <i class="fas fa-star"></i><br>
+                                    {{ template.rating|default:0|floatformat:1 }}/5
+                                </small>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted">
+                                    <i class="fas fa-{% if template.access_level == 'public' %}globe{% elif template.access_level == 'team' %}users{% else %}lock{% endif %}"></i><br>
+                                    {{ template.get_access_level_display }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                by {{ template.created_by.get_full_name|default:template.created_by.username }}
+                            </small>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" onclick="previewTemplate({{ template.id }})">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="useTemplate({{ template.id }})">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="fas fa-layer-group fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">No Templates Found</h5>
+                    <p class="text-muted">
+                        {% if request.GET.search or request.GET.category or request.GET.access_level %}
+                            No templates match your current filters. 
+                            <a href="{% url 'document_editor:template_list' %}">Clear filters</a>
+                        {% else %}
+                            Start by creating your first template or browse public templates.
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'document_editor:template_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create First Template
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if templates.has_other_pages %}
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="Templates pagination">
+                <ul class="pagination justify-content-center">
+                    {% if templates.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ templates.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.access_level %}&access_level={{ request.GET.access_level }}{% endif %}">Previous</a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in templates.paginator.page_range %}
+                        {% if templates.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > templates.number|add:'-3' and num < templates.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.access_level %}&access_level={{ request.GET.access_level }}{% endif %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if templates.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ templates.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.access_level %}&access_level={{ request.GET.access_level }}{% endif %}">Next</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Template Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Template Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <!-- Preview content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="useTemplateBtn">
+                    <i class="fas fa-plus"></i> Use This Template
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentTemplateId = null;
+
+function previewTemplate(templateId) {
+    currentTemplateId = templateId;
+    
+    fetch(`/document-editor/api/templates/${templateId}/preview/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('previewContent').innerHTML = `
+                <div class="mb-3">
+                    <h6>${data.template.name}</h6>
+                    <p class="text-muted">${data.template.description}</p>
+                    <div class="mb-2">
+                        <span class="badge bg-primary me-2">${data.template.category}</span>
+                        <span class="badge bg-secondary">${data.template.access_level}</span>
+                    </div>
+                </div>
+                <hr>
+                <div style="max-width: 800px; margin: 0 auto; padding: 20px; font-family: 'Times New Roman', serif; line-height: 1.6; border: 1px solid #ddd;">
+                    ${data.template.content}
+                </div>
+            `;
+            
+            document.getElementById('useTemplateBtn').onclick = () => useTemplate(templateId);
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        } else {
+            alert('Error loading template preview: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error loading template preview: ' + error);
+    });
+}
+
+function useTemplate(templateId) {
+    // Redirect to create document with template
+    window.location.href = `/document-editor/documents/create/?template=${templateId}`;
+}
+
+function duplicateTemplate(templateId) {
+    if (confirm('Create a copy of this template?')) {
+        fetch(`/document-editor/api/templates/${templateId}/duplicate/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = `/document-editor/templates/${data.template_id}/edit/`;
+            } else {
+                alert('Error duplicating template: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error duplicating template: ' + error);
+        });
+    }
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Auto-submit search form on select change
+document.querySelectorAll('select[name="category"], select[name="access_level"]').forEach(select => {
+    select.addEventListener('change', function() {
+        this.form.submit();
+    });
+});
+</script>
+{% endblock %}

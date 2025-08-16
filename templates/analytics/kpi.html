@@ -1,0 +1,771 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}KPI Dashboard - Legal Manager{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+.kpi-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+}
+.kpi-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.kpi-trend {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+.kpi-icon {
+    font-size: 3rem;
+    opacity: 0.8;
+}
+.gauge-container {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+}
+.target-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.metric-trend-up {
+    color: #28a745;
+}
+.metric-trend-down {
+    color: #dc3545;
+}
+.metric-trend-neutral {
+    color: #6c757d;
+}
+.kpi-status-excellent {
+    border-left: 5px solid #28a745;
+}
+.kpi-status-good {
+    border-left: 5px solid #20c997;
+}
+.kpi-status-warning {
+    border-left: 5px solid #ffc107;
+}
+.kpi-status-poor {
+    border-left: 5px solid #dc3545;
+}
+.sparkline-container {
+    height: 60px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'cases:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'analytics:overview' %}">Analytics</a></li>
+                            <li class="breadcrumb-item active">KPIs</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">📈 Key Performance Indicators</h1>
+                </div>
+                <div>
+                    <div class="btn-group me-2" role="group">
+                        <input type="radio" class="btn-check" name="period" id="period_today" value="today">
+                        <label class="btn btn-outline-primary" for="period_today">Today</label>
+                        
+                        <input type="radio" class="btn-check" name="period" id="period_week" value="week">
+                        <label class="btn btn-outline-primary" for="period_week">Week</label>
+                        
+                        <input type="radio" class="btn-check" name="period" id="period_month" value="month" checked>
+                        <label class="btn btn-outline-primary" for="period_month">Month</label>
+                        
+                        <input type="radio" class="btn-check" name="period" id="period_quarter" value="quarter">
+                        <label class="btn btn-outline-primary" for="period_quarter">Quarter</label>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-success" onclick="refreshKPIs()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="exportKPIs()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Executive Summary KPIs -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card kpi-card kpi-status-{{ revenue_kpi.status }} h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="card-title text-muted mb-2">Total Revenue</h6>
+                            <div class="kpi-value text-success">${{ total_revenue|default:0|floatformat:0 }}</div>
+                            <div class="kpi-trend">
+                                <span class="metric-trend-{{ revenue_trend.direction }}">
+                                    {% if revenue_trend.direction == 'up' %}
+                                        <i class="fas fa-arrow-up"></i>
+                                    {% elif revenue_trend.direction == 'down' %}
+                                        <i class="fas fa-arrow-down"></i>
+                                    {% else %}
+                                        <i class="fas fa-arrow-right"></i>
+                                    {% endif %}
+                                    {{ revenue_trend.percentage|default:0 }}%
+                                </span>
+                                <small class="text-muted">vs target</small>
+                            </div>
+                            <div class="sparkline-container mt-2">
+                                <canvas id="revenueSparkline"></canvas>
+                            </div>
+                        </div>
+                        <div class="kpi-icon text-success">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card kpi-card kpi-status-{{ cases_kpi.status }} h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="card-title text-muted mb-2">Active Cases</h6>
+                            <div class="kpi-value text-primary">{{ active_cases|default:0 }}</div>
+                            <div class="kpi-trend">
+                                <span class="metric-trend-{{ cases_trend.direction }}">
+                                    {% if cases_trend.direction == 'up' %}
+                                        <i class="fas fa-arrow-up"></i>
+                                    {% elif cases_trend.direction == 'down' %}
+                                        <i class="fas fa-arrow-down"></i>
+                                    {% else %}
+                                        <i class="fas fa-arrow-right"></i>
+                                    {% endif %}
+                                    {{ cases_trend.percentage|default:0 }}%
+                                </span>
+                                <small class="text-muted">vs last period</small>
+                            </div>
+                            <div class="sparkline-container mt-2">
+                                <canvas id="casesSparkline"></canvas>
+                            </div>
+                        </div>
+                        <div class="kpi-icon text-primary">
+                            <i class="fas fa-briefcase"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card kpi-card kpi-status-{{ satisfaction_kpi.status }} h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="card-title text-muted mb-2">Client Satisfaction</h6>
+                            <div class="kpi-value text-info">{{ client_satisfaction|default:0|floatformat:1 }}/5</div>
+                            <div class="kpi-trend">
+                                <span class="metric-trend-{{ satisfaction_trend.direction }}">
+                                    {% if satisfaction_trend.direction == 'up' %}
+                                        <i class="fas fa-arrow-up"></i>
+                                    {% elif satisfaction_trend.direction == 'down' %}
+                                        <i class="fas fa-arrow-down"></i>
+                                    {% else %}
+                                        <i class="fas fa-arrow-right"></i>
+                                    {% endif %}
+                                    {{ satisfaction_trend.percentage|default:0 }}%
+                                </span>
+                                <small class="text-muted">vs target</small>
+                            </div>
+                            <div class="sparkline-container mt-2">
+                                <canvas id="satisfactionSparkline"></canvas>
+                            </div>
+                        </div>
+                        <div class="kpi-icon text-info">
+                            <i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card kpi-card kpi-status-{{ utilization_kpi.status }} h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="card-title text-muted mb-2">Team Utilization</h6>
+                            <div class="kpi-value text-warning">{{ team_utilization|default:0|floatformat:0 }}%</div>
+                            <div class="kpi-trend">
+                                <span class="metric-trend-{{ utilization_trend.direction }}">
+                                    {% if utilization_trend.direction == 'up' %}
+                                        <i class="fas fa-arrow-up"></i>
+                                    {% elif utilization_trend.direction == 'down' %}
+                                        <i class="fas fa-arrow-down"></i>
+                                    {% else %}
+                                        <i class="fas fa-arrow-right"></i>
+                                    {% endif %}
+                                    {{ utilization_trend.percentage|default:0 }}%
+                                </span>
+                                <small class="text-muted">vs target</small>
+                            </div>
+                            <div class="sparkline-container mt-2">
+                                <canvas id="utilizationSparkline"></canvas>
+                            </div>
+                        </div>
+                        <div class="kpi-icon text-warning">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Goals and Targets -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Goal Progress</h5>
+                </div>
+                <div class="card-body">
+                    {% for goal in kpi_goals %}
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">{{ goal.title }}</h6>
+                            <span class="badge bg-{{ goal.status_color }}">{{ goal.progress_percentage|floatformat:0 }}%</span>
+                        </div>
+                        <div class="progress mb-2" style="height: 8px;">
+                            <div class="progress-bar bg-{{ goal.status_color }}" 
+                                 style="width: {{ goal.progress_percentage }}%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted small">
+                            <span>{{ goal.current_value }} / {{ goal.target_value }}</span>
+                            <span>Due: {{ goal.deadline|date:"M j" }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Performance Gauge</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="gauge-container">
+                        <canvas id="performanceGauge" width="200" height="200"></canvas>
+                        <div class="target-indicator">
+                            <div class="kpi-value text-primary">{{ overall_performance|default:0|floatformat:0 }}%</div>
+                            <small class="text-muted">Overall Score</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed KPI Metrics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Detailed KPI Metrics</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary active" onclick="switchKPIView('grid')">Grid</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="switchKPIView('table')">Table</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="kpiGrid">
+                        <div class="row">
+                            <div class="col-lg-4 col-md-6 mb-3">
+                                <div class="card border h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Case Win Rate</h6>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="h4 mb-0 text-success">{{ win_rate|default:0|floatformat:1 }}%</span>
+                                            <span class="text-muted">Target: 85%</span>
+                                        </div>
+                                        <div class="progress mt-2">
+                                            <div class="progress-bar bg-success" style="width: {{ win_rate|default:0 }}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6 mb-3">
+                                <div class="card border h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Avg Case Duration</h6>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="h4 mb-0 text-primary">{{ avg_case_duration|default:0|floatformat:0 }}</span>
+                                            <span class="text-muted">Target: ≤30 days</span>
+                                        </div>
+                                        <div class="progress mt-2">
+                                            {% if avg_case_duration <= 30 %}
+                                                <div class="progress-bar bg-success" 
+                                            {% elif avg_case_duration <= 45 %}
+                                                <div class="progress-bar bg-warning" 
+                                            {% else %}
+                                                <div class="progress-bar bg-danger" 
+                                            {% endif %}
+                                                 style="width: {% if avg_case_duration <= 30 %}100{% elif avg_case_duration <= 60 %}75{% else %}50{% endif %}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6 mb-3">
+                                <div class="card border h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Collection Rate</h6>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="h4 mb-0 text-info">{{ collection_rate|default:0|floatformat:1 }}%</span>
+                                            <span class="text-muted">Target: 95%</span>
+                                        </div>
+                                        <div class="progress mt-2">
+                                            <div class="progress-bar bg-info" style="width: {{ collection_rate|default:0 }}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6 mb-3">
+                                <div class="card border h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">New Client Acquisition</h6>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="h4 mb-0 text-warning">{{ new_clients|default:0 }}</span>
+                                            <span class="text-muted">Target: 10/month</span>
+                                        </div>
+                                        <div class="progress mt-2">
+                                            <div class="progress-bar bg-warning" style="width: {% if new_clients >= 8 %}100{% elif new_clients >= 6 %}75{% elif new_clients >= 4 %}50{% else %}25{% endif %}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6 mb-3">
+                                <div class="card border h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Billable Hours</h6>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="h4 mb-0 text-danger">{{ billable_hours|default:0|floatformat:0 }}</span>
+                                            <span class="text-muted">Target: 160h</span>
+                                        </div>
+                                        <div class="progress mt-2">
+                                            <div class="progress-bar bg-danger" style="width: {% if billable_hours >= 160 %}100{% elif billable_hours >= 120 %}75{% elif billable_hours >= 80 %}50{% else %}25{% endif %}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6 mb-3">
+                                <div class="card border h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Client Retention</h6>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="h4 mb-0 text-secondary">{{ client_retention|default:0|floatformat:1 }}%</span>
+                                            <span class="text-muted">Target: 90%</span>
+                                        </div>
+                                        <div class="progress mt-2">
+                                            <div class="progress-bar bg-secondary" style="width: {{ client_retention|default:0 }}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="kpiTable" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>KPI</th>
+                                        <th>Current Value</th>
+                                        <th>Target</th>
+                                        <th>Progress</th>
+                                        <th>Trend</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Case Win Rate</td>
+                                        <td>{{ win_rate|default:0|floatformat:1 }}%</td>
+                                        <td>85%</td>
+                                        <td>
+                                            <div class="progress" style="height: 6px;">
+                                                <div class="progress-bar bg-success" style="width: {{ win_rate|default:0 }}%"></div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="text-success">
+                                                <i class="fas fa-arrow-up"></i> 2.3%
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if win_rate >= 85 %}
+                                                <span class="badge bg-success">Excellent
+                                            {% elif win_rate >= 75 %}
+                                                <span class="badge bg-warning">Good
+                                            {% else %}
+                                                <span class="badge bg-danger">Needs Improvement
+                                            {% endif %}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <!-- Additional KPI rows would be added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Trends Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">KPI Trends Over Time</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="kpiTrendsChart" style="height: 400px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts and Notifications -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">KPI Alerts & Notifications</h5>
+                </div>
+                <div class="card-body">
+                    {% if kpi_alerts %}
+                        {% for alert in kpi_alerts %}
+                        <div class="alert alert-{{ alert.severity }} alert-dismissible fade show" role="alert">
+                            <strong>{{ alert.title }}</strong> {{ alert.message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <p>All KPIs are performing within target ranges.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Chart.js configurations
+Chart.defaults.responsive = true;
+Chart.defaults.maintainAspectRatio = false;
+
+// Sparkline charts
+function createSparkline(canvasId, data, color) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                data: data.values,
+                borderColor: color,
+                backgroundColor: color + '20',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: true
+            }]
+        },
+        options: {
+            scales: {
+                x: { display: false },
+                y: { display: false }
+            },
+            plugins: {
+                legend: { display: false }
+            },
+            elements: {
+                line: { tension: 0.4 }
+            }
+        }
+    });
+}
+
+// Initialize sparklines
+createSparkline('revenueSparkline', {{ revenue_sparkline_data|safe }}, '#28a745');
+createSparkline('casesSparkline', {{ cases_sparkline_data|safe }}, '#007bff');
+createSparkline('satisfactionSparkline', {{ satisfaction_sparkline_data|safe }}, '#17a2b8');
+createSparkline('utilizationSparkline', {{ utilization_sparkline_data|safe }}, '#ffc107');
+
+// Performance Gauge
+const gaugeCtx = document.getElementById('performanceGauge').getContext('2d');
+const performanceGauge = new Chart(gaugeCtx, {
+    type: 'doughnut',
+    data: {
+        datasets: [{
+            data: [{{ overall_performance|default:0 }}, 20],
+            backgroundColor: ['#28a745', '#e9ecef'],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        circumference: 180,
+        rotation: 270,
+        cutout: '80%',
+        plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false }
+        }
+    }
+});
+
+// KPI Trends Chart
+const kpiTrendsCtx = document.getElementById('kpiTrendsChart').getContext('2d');
+const kpiTrendsChart = new Chart(kpiTrendsCtx, {
+    type: 'line',
+    data: {
+        labels: {{ kpi_trend_labels|safe }},
+        datasets: [{
+            label: 'Win Rate (%)',
+            data: {{ win_rate_trend_data|safe }},
+            borderColor: '#28a745',
+            backgroundColor: '#28a74520',
+            yAxisID: 'y'
+        }, {
+            label: 'Client Satisfaction',
+            data: {{ satisfaction_trend_data|safe }},
+            borderColor: '#17a2b8',
+            backgroundColor: '#17a2b820',
+            yAxisID: 'y'
+        }, {
+            label: 'Team Utilization (%)',
+            data: {{ utilization_trend_data|safe }},
+            borderColor: '#ffc107',
+            backgroundColor: '#ffc10720',
+            yAxisID: 'y'
+        }, {
+            label: 'Avg Case Duration (days)',
+            data: {{ case_duration_trend_data|safe }},
+            borderColor: '#dc3545',
+            backgroundColor: '#dc354520',
+            yAxisID: 'y1'
+        }]
+    },
+    options: {
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        scales: {
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: {
+                    display: true,
+                    text: 'Percentage / Score'
+                },
+                min: 0,
+                max: 100
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                title: {
+                    display: true,
+                    text: 'Days'
+                },
+                grid: {
+                    drawOnChartArea: false,
+                },
+            }
+        },
+        plugins: {
+            title: {
+                display: true,
+                text: 'KPI Performance Trends'
+            }
+        }
+    }
+});
+
+// Event handlers
+document.querySelectorAll('input[name="period"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        refreshKPIs(this.value);
+    });
+});
+
+function refreshKPIs(period = null) {
+    const selectedPeriod = period || document.querySelector('input[name="period"]:checked').value;
+    
+    // Show loading state
+    const refreshBtn = document.querySelector('[onclick="refreshKPIs()"]');
+    const originalText = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+    refreshBtn.disabled = true;
+    
+    fetch(`/analytics/kpi/data/?period=${selectedPeriod}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateKPIValues(data);
+            updateCharts(data);
+        }
+    })
+    .catch(error => {
+        console.error('Error refreshing KPIs:', error);
+    })
+    .finally(() => {
+        refreshBtn.innerHTML = originalText;
+        refreshBtn.disabled = false;
+    });
+}
+
+function updateKPIValues(data) {
+    // Update KPI card values
+    document.querySelectorAll('.kpi-value').forEach((element, index) => {
+        if (data.kpi_values && data.kpi_values[index]) {
+            element.textContent = data.kpi_values[index];
+        }
+    });
+    
+    // Update trends
+    document.querySelectorAll('.kpi-trend').forEach((element, index) => {
+        if (data.kpi_trends && data.kpi_trends[index]) {
+            element.innerHTML = data.kpi_trends[index];
+        }
+    });
+}
+
+function updateCharts(data) {
+    // Update KPI trends chart
+    if (data.trend_data) {
+        kpiTrendsChart.data.labels = data.trend_data.labels;
+        kpiTrendsChart.data.datasets.forEach((dataset, index) => {
+            if (data.trend_data.datasets[index]) {
+                dataset.data = data.trend_data.datasets[index];
+            }
+        });
+        kpiTrendsChart.update();
+    }
+    
+    // Update performance gauge
+    if (data.overall_performance !== undefined) {
+        performanceGauge.data.datasets[0].data = [
+            data.overall_performance, 
+            100 - data.overall_performance
+        ];
+        performanceGauge.update();
+        
+        document.querySelector('.target-indicator .kpi-value').textContent = 
+            data.overall_performance.toFixed(0) + '%';
+    }
+}
+
+function switchKPIView(view) {
+    const grid = document.getElementById('kpiGrid');
+    const table = document.getElementById('kpiTable');
+    const buttons = document.querySelectorAll('.btn-group .btn');
+    
+    buttons.forEach(btn => btn.classList.remove('active'));
+    
+    if (view === 'grid') {
+        grid.style.display = 'block';
+        table.style.display = 'none';
+        buttons[0].classList.add('active');
+    } else {
+        grid.style.display = 'none';
+        table.style.display = 'block';
+        buttons[1].classList.add('active');
+    }
+}
+
+function exportKPIs() {
+    const period = document.querySelector('input[name="period"]:checked').value;
+    window.open(`/analytics/kpi/export/?period=${period}`, '_blank');
+}
+
+// Auto-refresh KPIs every 15 minutes
+setInterval(() => {
+    refreshKPIs();
+}, 900000);
+
+// Initialize with current period
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up real-time updates for critical KPIs
+    const criticalKPIs = ['revenue', 'cases', 'satisfaction'];
+    
+    // Simulate real-time updates (in production, this would be WebSocket or SSE)
+    setInterval(() => {
+        // Update critical KPIs more frequently
+        fetch('/analytics/kpi/realtime/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update only critical KPI values without full refresh
+                updateCriticalKPIs(data.critical_kpis);
+            }
+        })
+        .catch(error => {
+            console.debug('Real-time update failed:', error);
+        });
+    }, 60000); // Every minute for critical KPIs
+});
+
+function updateCriticalKPIs(kpis) {
+    // Update critical KPI values in real-time
+    if (kpis.revenue) {
+        document.querySelector('.kpi-value.text-success').textContent = 
+            '$' + kpis.revenue.toLocaleString();
+    }
+    if (kpis.active_cases) {
+        document.querySelector('.kpi-value.text-primary').textContent = kpis.active_cases;
+    }
+    if (kpis.satisfaction) {
+        document.querySelector('.kpi-value.text-info').textContent = 
+            kpis.satisfaction.toFixed(1) + '/5';
+    }
+}
+</script>
+{% endblock %}
